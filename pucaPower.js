@@ -518,6 +518,11 @@ var pucaPower = {
 
 
     setup: function () {
+        if ( window.location.href.toLowerCase().indexOf('pucatrade.com') === -1 ) {
+            alert('Hey!  This doesn\'t look like PucaTrade!');
+            return this;
+        }
+    
         // Required styling options
         $('<style id="pucaPowerCSS" type="text/css"></style>').appendTo('head');
         $('style#pucaPowerCSS').append('.noteItem { list-style: disc inside !important; }');
