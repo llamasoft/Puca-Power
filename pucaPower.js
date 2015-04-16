@@ -12,7 +12,7 @@ var pucaPower = {
     //   loadSettingsFromPage
     //   controls.html
     defaults: {
-        reloadInterval: 30,
+        reloadInterval: 60,
 
         alert: {
             enabled: true,
