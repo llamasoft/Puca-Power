@@ -20,7 +20,7 @@ var pucaPower = {
             colorizeRows: true,
             colorizeColor: '#CCFF99',
             playSound: true,
-            soundFile: 'https://raw.githubusercontent.com/llamasoft/Puca-Power/master/alert.mp3'
+            soundFile: 'https://llamasoft.github.io/Puca-Power/alert.mp3'
         },
 
         filter: {
