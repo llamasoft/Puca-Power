@@ -3,7 +3,7 @@ var pucaPower = {
 
     /* ===== INTERNAL VARIABLES ===== */
 
-    version: "v1.0a",
+    version: "v1.0a2",
     formUrl: "https://llamasoft.github.io/Puca-Power/controls.html",
 
     // Default values for internal settings
@@ -462,9 +462,13 @@ var pucaPower = {
         if ( !$('input.niceToggle.intersect').prop('checked') ) {
             this.debug(2, 'Enabling auto-match');
             $('.niceToggle.intersect').click();
-
+            
+            // Toggling auto-match adds an extra delay, be sure to give it extra time
+            this.tableChangeDelay = 1000;
+            
         } else {
             loadTableData();
+            this.tableChangeDelay = 250;
         }
 
         // loadTableData() is asynchronous, we need to manually detect when it finishes updating
@@ -548,12 +552,14 @@ var pucaPower = {
             $('input#alertEnabled').click(this.updatePageState.bind(this));
             $('input#alertColorizeRows').click(this.updatePageState.bind(this));
             $('input#alertPlaySound').click(this.updatePageState.bind(this));
+            $('i#alertPreviewSound').click(function () { $('audio#alertSound').trigger('play'); });
 
             $('input#filterCards').click(this.updatePageState.bind(this));
 
         }.bind(this));
 
-        // Disable the infinite scroll feature, it's terribly buggy
+        // Disable the infinite scroll feature
+        //   It repeatedly calls loadTableData() which causes lag
         $(this.tableStr).infinitescroll('unbind');
 
         return this;
