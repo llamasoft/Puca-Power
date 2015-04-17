@@ -29,7 +29,7 @@
         <div class="form-inline">
             <label class="checkbox">
                 <input id="alertEnabled" type="checkbox">
-                Alert on trade bundles over
+                Alert on <abbr title="one or more cards from a single member">trade bundles</abbr> over
             </label>
             <div class="input-append">
                 <input id="alertBundleThreshold" type="number" class="input-mini">
@@ -42,7 +42,10 @@
                 <input type="checkbox" id="alertPlaySound">
                 Play sound on alert
             </label>
-            <input id="alertSoundFile" class="input-medium" type="url" placeholder="http://">
+            <div class="input-append">
+                <input id="alertSoundFile" class="input-small" type="url" placeholder="http://">
+                <span class="add-on"><i id="alertPreviewSound" class="icon-play"></i></span>
+            </div>
         </div>
         <h3><!-- spacing hack --></h3>
         <div class="form-inline">
