@@ -165,6 +165,9 @@ var pucaPower = {
             this.reloadInterval,
             this.defaults.reloadInterval
         );
+        
+        // Don't be a menace
+        if ( this.reloadInterval < 10 ) { this.reloadInterval = 10; }
 
         this.alert = {
             enabled:         $('input#alertEnabled').prop('checked'),
@@ -190,8 +193,6 @@ var pucaPower = {
 
         // In case safeParse() changed anything
         this.applySettingsToPage();
-
-        // this.saveSettingsToLocal();
     },
 
     // Update HTML inputs to match current settings
@@ -333,7 +334,8 @@ var pucaPower = {
         this.debug(2, 'Checking for alerts');
 
         var i;
-        var pendingAlerts = []; // { msg, style, weight }
+        var pendingAlerts = [];
+        var curAlert = {}; // { msg, style, weight } 
         
         var memberName, memberPts;
         var cardQty, totalCardPts;
@@ -357,12 +359,15 @@ var pucaPower = {
 
                 // Queue the alert
                 // If the trade value is limited by the user's points, mark the entry
-                pendingAlerts.push({
+                curAlert = {
                     msg: '<strong>' + memberName + ' (' + memberPts + ' points)</strong> wants '
                         + cardQty + ' cards for <strong>' + totalCardPts + ' points</strong>',
                     style: (totalCardPts > memberPts ? 'text-warning' : ''),
                     weight: tradeValue
-                });
+                };
+                pendingAlerts.push(curAlert);
+                
+                this.debug(1, 'Alert! ' + curAlert.msg);
             }
         }
 
@@ -526,6 +531,11 @@ var pucaPower = {
             alert('Hey!  This doesn\'t look like PucaTrade!');
             return this;
         }
+        
+        if ( window.location.href.toLowerCase().indexOf('pucatrade.com/trades') === -1 ) {
+            alert('Hey!  This isn\'t the Trades section!');
+            return this;
+        }
     
         // Required styling options
         $('<style id="pucaPowerCSS" type="text/css"></style>').appendTo('head');
@@ -541,8 +551,16 @@ var pucaPower = {
             this.applySettingsToPage();
 
             $('#pucaPowerVersion').text(this.version);
-            $('button#start').click(this.go.bind(this));
-            $('button#stop').click(this.stop.bind(this));
+            
+            $('button#start').click(function () {
+                this.addNote('Refresh started', 'text-success');
+                this.go();
+            }.bind(this));
+            $('button#stop').click(function () {
+                this.addNote('Refresh stopped', 'text-warning');
+                this.stop();
+            }.bind(this));
+            
             $('button#save').click(function () {
                 this.loadSettingsFromPage();
                 this.saveSettingsToLocal();
@@ -552,7 +570,10 @@ var pucaPower = {
             $('input#alertEnabled').click(this.updatePageState.bind(this));
             $('input#alertColorizeRows').click(this.updatePageState.bind(this));
             $('input#alertPlaySound').click(this.updatePageState.bind(this));
-            $('i#alertPreviewSound').click(function () { $('audio#alertSound').trigger('play'); });
+            $('i#alertPreviewSound').click(function () {
+                this.loadSettingsFromPage();
+                $('audio#alertSound').trigger('play');
+            }.bind(this));
 
             $('input#filterCards').click(this.updatePageState.bind(this));
 
