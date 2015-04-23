@@ -641,7 +641,7 @@ var pucaPower = {
         this.clearAllNotes();
         this.checkForAlerts();
         this.filterTrades();
-        
+
         // Repeat if 1) we're running, 2) we don't have a reload pending, 3) the reload interval is positive
         if (this.reloadInterval > 0 && !this.reloadTimeout && this.running) {
             this.reloadTimeout = setTimeout(this.go.bind(this), this.reloadInterval * 1000);
@@ -680,6 +680,9 @@ var pucaPower = {
         $(document).ajaxSend(function (e, xhr, settings) {
             var url = settings.url;
             this.debug(4, '.ajaxSend - ' + url);
+
+            // Suppress fancybox loading animation
+            $.fancybox.hideLoading();
 
             // Specifically allow /trades/active
             // This is us calling loadOutgoingTrades()
