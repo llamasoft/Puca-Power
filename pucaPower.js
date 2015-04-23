@@ -788,6 +788,8 @@ var pucaPower = {
         this.loadDefaultSettings();
         this.loadSettingsFromLocal();
 
+        // Disable AJAX caching
+        $.ajaxSetup({ cache: false });
 
         // Add the settings form by clobbering the help text
         $('div.explain-text').load(this.formUrl, function () {
