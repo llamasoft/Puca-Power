@@ -624,7 +624,9 @@ var pucaPower = {
             this.debug(2, 'Enabling auto-match');
             $('input.niceToggle.intersect').prop('checked', true);
             $('label.niceToggle.intersect').addClass('on');
-            window.lastVars.intersect = true;
+            
+            // lastVars may or may not be defined yet
+            window.lastVars = $.extend({ intersect: true }, window.lastVars);
         }
         
         loadTableData();
