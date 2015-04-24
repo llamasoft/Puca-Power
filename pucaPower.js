@@ -620,15 +620,14 @@ var pucaPower = {
         $('button#stop').addClass('btn-danger');
 
         // Auto-match must be on, otherwise things get weird with alerts and filtering.
-        // We only need to call loadTableData() if auto-match is off as
-        //   toggling auto-match automatically reloads the table.
         if ( !$('input.niceToggle.intersect').prop('checked') ) {
             this.debug(2, 'Enabling auto-match');
-            $('.niceToggle.intersect').click();
-
-        } else {
-            loadTableData();
+            $('input.niceToggle.intersect').prop('checked', true);
+            $('label.niceToggle.intersect').addClass('on');
+            window.lastVars.intersect = true;
         }
+        
+        loadTableData();
     },
 
     // The trade table finished updating and we can now load the data
