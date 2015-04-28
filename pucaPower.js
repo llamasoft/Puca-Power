@@ -1,9 +1,20 @@
 /*jslint browser: true, devel: true, plusplus: true, sloppy: true, unparam: true, vars: true, white: true */
+
+// ==UserScript==
+// @name            Puca Power
+// @version         1.1
+// @namespace       https://github.com/llamasoft/Puca-Power
+// @description     A JavaScript utility for better trading on PucaTrade.com
+// @downloadURL     https://llamasoft.github.io/Puca-Power/pucaPower.js
+// @grant           none
+// @include         https://pucatrade.com/trades
+// ==/UserScript==
+
 var pucaPower = {
 
     /* ===== INTERNAL VARIABLES ===== */
 
-    version: 'v1.0a4',
+    version: 'v1.1',
     formUrl: 'https://llamasoft.github.io/Puca-Power/controls.html',
 
     // Default values for internal settings
@@ -473,6 +484,7 @@ var pucaPower = {
             cardQty      = this.memberData[i].cardQty;
             totalCardPts = this.memberData[i].totalCardPts;
 
+
             // The bundle is only worth what the member can actually pay for
             tradeValue = Math.min(totalCardPts, memberPts);
             curAlert = {};
@@ -515,7 +527,7 @@ var pucaPower = {
 
             if ( curAlert.msg !== undefined ) {
                 pendingAlerts.push(curAlert);
-                this.debug(1, 'Alert! ' + curAlert.msg);
+                this.debug(0, 'Alert! ' + curAlert.msg);
             }
         }
 
@@ -541,9 +553,16 @@ var pucaPower = {
                     rowColor = this.alert.colorizeOutgoingColor;
                 }
 
-
+                // If we have a pending color, apply it.
                 if ( rowColor !== null ) {
                     $(this.tableData[i].dom).find('td').css('background-color', rowColor);
+                }
+
+
+                // Put a mark next to the member's points if they can't afford all their wants
+                if ( this.memberData[memberName].memberPts < this.memberData[memberName].totalCardPts ) {
+                    $(this.tableData[i].dom).find('td.points').prepend('<i class="icon-warning-sign"></i>&nbsp;&nbsp;');
+                    $(this.tableData[i].dom).find('td.points').append('&nbsp;&nbsp;<i class="icon-warning-sign"></i>');
                 }
             }
         }
@@ -624,11 +643,11 @@ var pucaPower = {
             this.debug(2, 'Enabling auto-match');
             $('input.niceToggle.intersect').prop('checked', true);
             $('label.niceToggle.intersect').addClass('on');
-            
+
             // lastVars may or may not be defined yet
             window.lastVars = $.extend({ intersect: true }, window.lastVars);
         }
-        
+
         loadTableData();
     },
 
