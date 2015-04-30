@@ -1,6 +1,6 @@
 Puca Power
 =============
-**Version:** 1.0a4 (2015-04-23)
+**Version:** 1.1 (2015-04-30)
 
 A JavaScript utility for better trading on PucaTrade.com
 
@@ -10,6 +10,7 @@ A JavaScript utility for better trading on PucaTrade.com
 - Alerts for valuable trade bundles
 - Alerts for add-on trades
 - Filtering of low value cards
+- Filtering members by available points
 
 
 ### Usage
