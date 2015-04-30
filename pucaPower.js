@@ -848,8 +848,8 @@ var pucaPower = {
         // Disable AJAX caching
         $.ajaxSetup({ cache: false });
 
-        // Add the settings form by clobbering the help text
-        $('div.explain-text').load(this.formUrl, function () {
+        // Add the settings form by clobbering the help text, add timestamp to prevent caching
+        $('div.explain-text').load(this.formUrl + '?' + (new Date).getTime(), function () {
             this.debug(1, 'Input form loaded');
 
             this.applySettingsToPage();
@@ -857,6 +857,8 @@ var pucaPower = {
             this.setupListeners();
 
             $('#pucaPowerVersion').text(this.version);
+            
+            this.addNote('Do you like Puca Power? Consider <a href="https://www.coinbase.com/checkouts/630f3600438a42cce9fc9aba8b23f744">donating Bitcoins</a>!');
 
         }.bind(this));
 
