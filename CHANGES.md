@@ -1,3 +1,18 @@
+##### Version 1.1 (2015-04-30)
+
+- Added additional filtering feature for members with less than a specified point value
+- Warning notice on member points for members who cannot afford all the cards they want
+- Refactoring of control IDs and internal variable names
+- JavaScript should no longer load cached version of the control form
+- Added compatibility with UserScripts plugins
+
+###### Known issues:
+
+- None
+
+
+----------
+
 ##### Version 1.0a4 (2015-04-23)
 
 - Major overhaul of event handling.  Now hooks `.ajaxSend()` and `.ajaxComplete()` instead of `DOMSubtreeModified`.  This fixes issue #1 from the previous release (auto-match toggle timing).

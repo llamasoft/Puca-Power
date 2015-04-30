@@ -20,7 +20,7 @@ A JavaScript utility for better trading on PucaTrade.com
 - Go to the [PucaTrade.com trading area](https://pucatrade.com/trades)
 - Paste the following code into your browser's JavaScript console (usually Ctrl + Shift + J):  
 ```JavaScript
-javascript:(function () { $('<script>').attr('src', 'https://llamasoft.github.io/Puca-Power/pucaPower.js').appendTo('head'); })();
+javascript:(function () { $('<script>').attr('src', 'https://llamasoft.github.io/Puca-Power/pucaPower.js?'+(new Date).getTime()).appendTo('head'); })();
 ```
 - Use the on-screen settings to configure and run Puca Power
 
@@ -31,6 +31,13 @@ javascript:(function () { $('<script>').attr('src', 'https://llamasoft.github.io
 - Replace the bookmark URL with code from the copy/paste method above, then save the bookmark
 - Go to the [PucaTrade.com trading area](https://pucatrade.com/trades) and click the bookmark
 - Use the on-screen settings to configure and run Puca Power
+
+
+**UserScript Method:**
+
+- Install a UserScript browser extension (e.g. Greasemonkey or Tampermonkey)
+- Visit [this page](https://llamasoft.github.io/Puca-Power/pucaPower.js), it should ask you if you'd like to install the script
+- The script will run automatically when you visit Puca Trade's trading area
 
 
 ### Preview
