@@ -95,10 +95,22 @@
         <div class="form-inline">
             <label class="checkbox">
                 <input type="checkbox" id="filterCardsByValue">
-                Filter cards less than
+                Filter cards worth less than
             </label>
             <div class="input-append">
                 <input id="filterCardsMinValue" type="number" class="input-mini" min="1" step="1">
+                <span class="add-on">points</span>
+            </div>
+        </div>
+        
+        <h3><!-- spacing hack --></h3>
+        <div class="form-inline">
+            <label class="checkbox">
+                <input type="checkbox" id="filterMembersByPoints">
+                Filter members with less than
+            </label>
+            <div class="input-append">
+                <input id="filterMembersMinPoints" type="number" class="input-mini" min="1" step="1">
                 <span class="add-on">points</span>
             </div>
         </div>

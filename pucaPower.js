@@ -1,15 +1,28 @@
-/*jslint browser: true, devel: true, plusplus: true, sloppy: true, unparam: true, vars: true, white: true */
+/* jslint browser: true, devel: true, plusplus: true, sloppy: true, unparam: true, vars: true, white: true */
+/* global loadTableData, $ */
+
+// ==UserScript==
+// @name            Puca Power
+// @version         1.1
+// @namespace       https://github.com/llamasoft/Puca-Power
+// @description     A JavaScript utility for better trading on PucaTrade.com
+// @downloadURL     https://llamasoft.github.io/Puca-Power/pucaPower.js
+// @grant           none
+// @include         https://pucatrade.com/trades
+// ==/UserScript==
+
 var pucaPower = {
 
     /* ===== INTERNAL VARIABLES ===== */
 
-    version: 'v1.0a4',
+    version: 'v1.1',
     formUrl: 'https://llamasoft.github.io/Puca-Power/controls.html',
 
     // Default values for internal settings
     // If you change this structure, you need to update the following:
     //   applySettingsToPage
     //   loadSettingsFromPage
+    //   setupListeners
     //   controls.html
     defaults: {
         reloadInterval: 60,
@@ -32,8 +45,10 @@ var pucaPower = {
         },
 
         filter: {
-            cardByValue: false,
-            minCardValue: 50
+            cardsByValue: false,
+            cardsMinValue: 50,
+            membersByPoints: false,
+            membersMinPoints: 400
         }
     },
 
@@ -215,12 +230,19 @@ var pucaPower = {
         };
 
         this.filter = {
-            cardByValue: $('input#filterCardsByValue').prop('checked'),
-            minCardValue:
+            cardsByValue: $('input#filterCardsByValue').prop('checked'),
+            cardsMinValue:
                 safeParse(
                     $('input#filterCardsMinValue').val(),
-                    this.filter.minCardValue,
-                    this.defaults.filter.minCardValue
+                    this.filter.cardsMinValue,
+                    this.defaults.filter.cardsMinValue
+                ),
+            membersByPoints: $('input#filterMembersByPoints').prop('checked'),
+            membersMinPoints:
+                safeParse(
+                    $('input#filterMembersMinPoints').val(),
+                    this.filter.membersMinPoints,
+                    this.defaults.filter.membersMinPoints
                 )
         };
 
@@ -253,8 +275,11 @@ var pucaPower = {
         $('input#alertChangeTitle').prop('checked', this.alert.changeTitle);
 
         // Filter settings
-        $('input#filterCardsByValue').prop('checked', this.filter.cardByValue);
-        $('input#filterCardsMinValue').val(this.filter.minCardValue);
+        $('input#filterCardsByValue').prop('checked', this.filter.cardsByValue);
+        $('input#filterCardsMinValue').val(this.filter.cardsMinValue);
+        $('input#filterMembersByPoints').prop('checked', this.filter.membersByPoints);
+        $('input#filterMembersMinPoints').val(this.filter.membersMinPoints);
+
 
         this.updatePageState();
     },
@@ -265,37 +290,41 @@ var pucaPower = {
         var isChecked;
         var isEnabled;
 
-        // Alert on bundle is connected to its colorize options
+        // Alert on bundle checkbox is connected to its colorize checkboxes
         isChecked = $('input#alertOnBundle').prop('checked');
         $('input#alertBundleThreshold').prop('disabled', !isChecked);
         $('input#alertColorizeBundleRows').prop('disabled', !isChecked);
         $('input#alertColorizeBundleColor').prop('disabled', !isChecked);
 
-        // Colorize bundle rows is connected to the color picker
+        // Colorize bundle rows checkbox is connected to the color picker
         isChecked =  $('input#alertColorizeBundleRows').prop('checked');
         isEnabled = !$('input#alertColorizeBundleRows').prop('disabled');
         $('input#alertColorizeBundleColor').prop('disabled', !(isEnabled && isChecked));
 
 
-        // Alert on outgoing trades is connected to its colorize option
+        // Alert on outgoing trades checkbox is connected to its colorize checkboxes
         isChecked = $('input#alertOnOutgoing').prop('checked');
         $('input#alertColorizeOutgoingRows').prop('disabled', !isChecked);
         $('input#alertColorizeOutgoingColor').prop('disabled', !isChecked);
 
-        // Colorize outgoing rows is connected to the color picker
+        // Colorize outgoing rows checkbox is connected to the color picker
         isChecked =  $('input#alertColorizeOutgoingRows').prop('checked');
         isEnabled = !$('input#alertColorizeOutgoingRows').prop('disabled');
         $('input#alertColorizeOutgoingColor').prop('disabled', !(isEnabled && isChecked));
 
 
-        // The "play alert sound" option is connected to the "sound file" option
+        // The play alert sound checkbox is connected to the sound file input
         isChecked =  $('input#alertPlaySound').prop('checked');
         $('input#alertSoundFile').prop('disabled', !isChecked);
 
 
-        // The "enable filter" option is connected to the "minimum card value" option
+        // The card value filter checkbox is connected to the minimum card value input
         isChecked = $('input#filterCardsByValue').prop('checked');
         $('input#filterCardsMinValue').prop('disabled', !isChecked);
+
+        // The member filter checkbox is connected to the minimum member points input
+        isChecked = $('input#filterMembersByPoints').prop('checked');
+        $('input#filterMembersMinPoints').prop('disabled', !isChecked);
     },
 
 
@@ -473,6 +502,7 @@ var pucaPower = {
             cardQty      = this.memberData[i].cardQty;
             totalCardPts = this.memberData[i].totalCardPts;
 
+
             // The bundle is only worth what the member can actually pay for
             tradeValue = Math.min(totalCardPts, memberPts);
             curAlert = {};
@@ -515,7 +545,7 @@ var pucaPower = {
 
             if ( curAlert.msg !== undefined ) {
                 pendingAlerts.push(curAlert);
-                this.debug(1, 'Alert! ' + curAlert.msg);
+                this.debug(0, 'Alert! ' + curAlert.msg);
             }
         }
 
@@ -541,9 +571,16 @@ var pucaPower = {
                     rowColor = this.alert.colorizeOutgoingColor;
                 }
 
-
+                // If we have a pending color, apply it.
                 if ( rowColor !== null ) {
                     $(this.tableData[i].dom).find('td').css('background-color', rowColor);
+                }
+
+
+                // Put a mark next to the member's points if they can't afford all their wants
+                if ( this.memberData[memberName].memberPts < this.memberData[memberName].totalCardPts ) {
+                    $(this.tableData[i].dom).find('td.points').prepend('<i class="icon-warning-sign"></i>&nbsp;&nbsp;');
+                    $(this.tableData[i].dom).find('td.points').append('&nbsp;&nbsp;<i class="icon-warning-sign"></i>');
                 }
             }
         }
@@ -571,25 +608,40 @@ var pucaPower = {
         this.debug(2, 'Filtering trades');
         var i;
         var filterQty = 0;
-        var memberName;
-        var cardName;
-        var cardPts;
-        var hasAlert;
+        var memberName, memberPts, hasAlert;
+        var cardName, cardPts;
+        var matchedFilter;
 
         for (i = 0; i < this.tableData.length; i++) {
             memberName = this.tableData[i].memberName;
+            memberPts  = this.memberData[memberName].memberPts;
+            hasAlert   = this.memberData[memberName].hasAlert;
+
             cardName = this.tableData[i].cardName;
-            cardPts = this.tableData[i].cardPts;
-            hasAlert = this.memberData[memberName].hasAlert;
+            cardPts  = this.tableData[i].cardPts;
+
+            matchedFilter = false;
 
             // Skip entries that have pending alerts
             if ( hasAlert ) { continue; }
 
+
             // Filter cards by value
-            if ( this.filter.cardByValue && cardPts < this.filter.minCardValue ) {
+            if ( this.filter.cardsByValue && cardPts < this.filter.cardsMinValue ) {
                 this.debug(4, 'Filtering trade: ' + cardName + ' (' + cardPts + ')');
-                $(this.tableData[i].dom).hide();
+                matchedFilter = true;
+
+            // Filter members by points
+            } else if ( this.filter.membersByPoints && memberPts < this.filter.membersMinPoints ) {
+                this.debug(4, 'Filtering member: ' + memberName + ' (' + memberPts + ')');
+                matchedFilter = true;
+            }
+
+
+            // If we found at least one filter criteria, hide the trade offer
+            if ( matchedFilter ) {
                 filterQty++;
+                $(this.tableData[i].dom).hide();
             }
         }
 
@@ -624,11 +676,11 @@ var pucaPower = {
             this.debug(2, 'Enabling auto-match');
             $('input.niceToggle.intersect').prop('checked', true);
             $('label.niceToggle.intersect').addClass('on');
-            
+
             // lastVars may or may not be defined yet
             window.lastVars = $.extend({ intersect: true }, window.lastVars);
         }
-        
+
         loadTableData();
     },
 
@@ -767,6 +819,7 @@ var pucaPower = {
         }.bind(this));
 
         $('input#filterCardsByValue').click(this.updatePageState.bind(this));
+        $('input#filterMembersByPoints').click(this.updatePageState.bind(this));
 
     },
 
@@ -795,8 +848,8 @@ var pucaPower = {
         // Disable AJAX caching
         $.ajaxSetup({ cache: false });
 
-        // Add the settings form by clobbering the help text
-        $('div.explain-text').load(this.formUrl, function () {
+        // Add the settings form by clobbering the help text, add timestamp to prevent caching
+        $('div.explain-text').load(this.formUrl + '?' + (new Date).getTime(), function () {
             this.debug(1, 'Input form loaded');
 
             this.applySettingsToPage();
@@ -804,6 +857,8 @@ var pucaPower = {
             this.setupListeners();
 
             $('#pucaPowerVersion').text(this.version);
+            
+            this.addNote('Do you like Puca Power? Consider <a href="https://www.coinbase.com/checkouts/630f3600438a42cce9fc9aba8b23f744">donating Bitcoins</a>!');
 
         }.bind(this));
 
