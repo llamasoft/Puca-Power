@@ -9,6 +9,7 @@
 // @downloadURL     https://llamasoft.github.io/Puca-Power/pucaPower.js
 // @grant           none
 // @include         https://pucatrade.com/trades
+// @include         https://pucatrade.com/trades/
 // ==/UserScript==
 
 var pucaPower = {
