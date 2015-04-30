@@ -686,7 +686,7 @@ var pucaPower = {
         this.events.tableLoadComplete = false;
         this.events.outgoingLoadComplete = false;
 
-        loadTableData();
+        window.loadTableData();
     },
 
     // The trade table finished updating and we can now load the data
@@ -736,7 +736,7 @@ var pucaPower = {
         // Whenever loadTableData is called we need to reload our list of outgoing trades.
         // The cleanest way of doing this is to hook the .ajaxSend() event.
         $(document).ajaxSend(function (e, xhr, settings) {
-            var url = settings.url;
+            var url = settings.url.split('?')[0];
             this.debug(4, '.ajaxSend - ' + url);
 
             // Suppress fancybox loading animation
@@ -749,9 +749,9 @@ var pucaPower = {
                 return;
             }
 
-            // Ignore anything else under /trades/
+            // Ignore anything else under /trades/ except /trades/ itself
             // This includes the card sending and confirmation dialogs
-            if ( url.indexOf('/trades/') !== -1 ) { return; }
+            if ( url.indexOf('/trades/') !== -1 && url.length > '/trades/'.length ) { return; }
 
 
             // This is something - maybe us, maybe not - calling loadTableData()
@@ -767,7 +767,7 @@ var pucaPower = {
 
         // Whenever loadTableData or loadOutgoingTrades finishes we need to know about it.
         $(document).ajaxComplete(function (e, xhr, settings) {
-            var url = settings.url;
+            var url = settings.url.split('?')[0];
             this.debug(4, '.ajaxComplete - ' + url);
 
             // Specifically allow /trades/active
@@ -778,9 +778,9 @@ var pucaPower = {
                 return;
             }
 
-            // Ignore anything else under /trades/
+            // Ignore anything else under /trades/ except /trades/ itself
             // This includes the card sending and confirmation dialogs
-            if ( url.indexOf('/trades/') !== -1 ) { return; }
+            if ( url.indexOf('/trades/') !== -1 && url.length > '/trades/'.length ) { return; }
 
 
             // This is something - maybe us, maybe not - calling loadTableData()
