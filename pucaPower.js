@@ -395,7 +395,7 @@ var pucaPower = {
     // Loads the and parses the outgoing trade information
     //   into a manageable structure (outgoingTrades)
     loadOutgoingTrades: function () {
-        this.debug(3, 'Fetching outgoing trades');
+        this.debug(2, 'Fetching outgoing trades');
 
         // This is handled by the .ajaxSend and .ajaxComplete events
         // It's not pretty, but at least it's all in one place
@@ -404,6 +404,8 @@ var pucaPower = {
 
         // Parse the outgoing trades table
         $.get('/trades/active', function (data) {
+            this.debug(3, 'Got outgoing trades');
+
             var i;
             var tableRows = $(data).find('table.datatable tbody tr[id^="user_card"]:contains("Unshipped")');
             var curRow, curFields;
@@ -681,6 +683,9 @@ var pucaPower = {
             window.lastVars = $.extend({ intersect: true }, window.lastVars);
         }
 
+        this.events.tableLoadComplete = false;
+        this.events.outgoingLoadComplete = false;
+
         loadTableData();
     },
 
@@ -857,7 +862,7 @@ var pucaPower = {
             this.setupListeners();
 
             $('#pucaPowerVersion').text(this.version);
-            
+
             this.addNote('Do you like Puca Power? Consider <a href="https://www.coinbase.com/checkouts/630f3600438a42cce9fc9aba8b23f744">donating Bitcoins</a>!');
 
         }.bind(this));
