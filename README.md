@@ -42,7 +42,7 @@ javascript:(function () { $('<script>').attr('src', 'https://llamasoft.github.io
 
 ### Preview
 
-![ ](http://i.imgur.com/q9eljXN.png)
+![ ](http://i.imgur.com/7jL9JlN.png)
 
 
 ###### Disclaimer
