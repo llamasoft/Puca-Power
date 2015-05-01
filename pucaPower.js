@@ -1,9 +1,9 @@
-/* jslint browser: true, devel: true, plusplus: true, sloppy: true, unparam: true, vars: true, white: true */
+/*jslint browser: true, devel: true, plusplus: true, sloppy: true, unparam: true, vars: true, white: true */
 /* global loadTableData, $ */
 
 // ==UserScript==
 // @name            Puca Power
-// @version         1.1
+// @version         1.2
 // @namespace       https://github.com/llamasoft/Puca-Power
 // @description     A JavaScript utility for better trading on PucaTrade.com
 // @downloadURL     https://llamasoft.github.io/Puca-Power/pucaPower.js
@@ -16,7 +16,7 @@ var pucaPower = {
 
     /* ===== INTERNAL VARIABLES ===== */
 
-    version: 'v1.1',
+    version: 'v1.2',
     formUrl: 'https://llamasoft.github.io/Puca-Power/controls.html',
 
     // Default values for internal settings
@@ -78,7 +78,7 @@ var pucaPower = {
     },
 
     // Array of objects of the loaded trade data
-    // Each entry is {dom, memberName, memberPts, cardName, cardPts}
+    // Each entry is {dom, tradeID, memberName, memberPts, cardName, cardPts}
     tableData: [],
 
     // Object of objects of the table data grouped by member
@@ -94,6 +94,9 @@ var pucaPower = {
     // Object of objects of the outgoing (unshipped) trades
     // Each object is {cardQty, totalCardPts}, key is memberName
     outgoingTrades: {},
+    
+    // Object of trade IDs/trade value
+    seenAlerts: {},
 
     // Enable debug messages
     // debugLevel  0 - Errors and trade alerts
@@ -349,6 +352,7 @@ var pucaPower = {
         var tableRows = $(this.tableRowStr);
 
         var i;
+        var tradeID;
         var curRow, curFields;
         var cardName, cardPts;
         var memberName, memberPts;
@@ -359,6 +363,7 @@ var pucaPower = {
             curFields = $(curRow).find('td');
 
             // Extract the relevant table fields
+            tradeID = $(curRow).attr('id');
             cardName   =           $(curFields).eq(1).text().trim();
             cardPts    = parseInt( $(curFields).eq(2).text(), 10 );
             memberName =           $(curFields).eq(4).text().trim();
@@ -367,6 +372,7 @@ var pucaPower = {
             // Data per row
             this.tableData.push({
                 dom:        curRow,
+                tradeID:    tradeID,
                 memberName: memberName,
                 memberPts:  memberPts,
                 cardName:   cardName,
@@ -562,6 +568,8 @@ var pucaPower = {
                 // Reveal the row if previously hidden by filtering
                 $(this.tableData[i].dom).show();
                 $(this.tableData[i].dom).data("hasAlert", true);
+                
+                this.seenAlerts[ this.tableData[i].tradeID ] = this.tableData[i].cardPts;
 
 
                 // Colorize if part of a bundle
@@ -603,7 +611,33 @@ var pucaPower = {
         }
     },
 
+    
+    
+    /* ===== MISC/UTILITY FUNCTIONS ===== */
+    
+    shamelessPlug: function () {
+        var paypal    = '<a href="https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=5GF3TD343BS4A">PayPal</a>';
+        var bitcoin   = '<a href="https://www.coinbase.com/checkouts/630f3600438a42cce9fc9aba8b23f744">Bitcoin</a>';
+        var pucatrade = '<a href="https://pucatrade.com/profiles/show/59386">Puca Trade</a>';
+        
+        // The sum of all unique alerted trades
+        var alertPoints = Object.keys(this.seenAlerts).reduce(function (sum, cur) { return sum + this.seenAlerts[cur]; }.bind(this), 0);
+        if ( alertPoints > 0 ) {
+            this.addNote('Puca Power has alerted you to <strong>' + alertPoints + ' points</strong> in trades this session.');
+        }
+        
+        this.addNote('<strong>Do you like Puca Power?</strong> <i class="icon-heart"></i> '
+                   + 'Consider donating via ' + paypal + ', ' + bitcoin + ', or ' + pucatrade + '!');
+    },
 
+    knapsack: function (items, knapsackSize) {
+        // TODO: return the highest value combination of items
+        //   that's less than or equal to knapsackSize
+        
+        // This will eventually replace the "tradeValue = Math.min(totalCardPts, memberPts);"
+        //   logic from checkForAlerts()
+    },
+    
 
     /* ===== FILTER FUNCTIONS ===== */
 
@@ -662,6 +696,15 @@ var pucaPower = {
 
     // Initiate trade data refresh
     go: function () {
+        
+        // If a fancybox window is open, stall the reload
+        // There's no point reloading the list if the user is currently confirming a trade
+        if ( $('.fancybox-inner').length > 0 ) {
+            this.debug(3, 'Stalling reload');
+            this.reloadTimeout = setTimeout(this.go.bind(this), 1000);
+            return;
+        }
+        
         this.debug(1, 'Reloading table data');
 
         // Reload settings in case something changed
@@ -683,6 +726,9 @@ var pucaPower = {
             // lastVars may or may not be defined yet
             window.lastVars = $.extend({ intersect: true }, window.lastVars);
         }
+        
+        // Enable the infinite scroll feature while the reloader is active
+        $(this.tableStr).infinitescroll('resume');
 
         this.events.tableLoadComplete = false;
         this.events.outgoingLoadComplete = false;
@@ -717,7 +763,11 @@ var pucaPower = {
 
         $('button#start').addClass('btn-success');
         $('button#stop').removeClass('btn-danger');
+        
+        // Disable the infinite scrolling unless the reloader is active
+        $(this.tableStr).infinitescroll('pause');
 
+        // If we have a pending reload, cancel it
         if (this.reloadTimeout) {
             clearTimeout(this.reloadTimeout);
             this.reloadTimeout = null;
@@ -729,35 +779,32 @@ var pucaPower = {
 
     // Responsible for setting up event listeners and handlers
     setupListeners: function () {
-        // Disable the infinite scroll feature (sorry)
-        // It spams AJAX requests whenever the user scrolls down the page
-        $(this.tableStr).infinitescroll('unbind');
-
 
         // Whenever loadTableData is called we need to reload our list of outgoing trades.
         // The cleanest way of doing this is to hook the .ajaxSend() event.
         $(document).ajaxSend(function (e, xhr, settings) {
-            var url = settings.url.split('?')[0];
+            // Remove url parameters, then remove trailing frontslashes
+            var url = settings.url.split('?')[0].replace(/\/+$/, '');
             this.debug(4, '.ajaxSend - ' + url);
 
             // Suppress fancybox loading animation
             $.fancybox.hideLoading();
 
-            // Specifically allow /trades/active
-            // This is us calling loadOutgoingTrades()
+            // Specifically allow /trades/active, this is us calling loadOutgoingTrades()
             if ( url.indexOf('/trades/active') !== -1 ) {
                 this.events.outgoingLoadComplete = false;
                 return;
             }
 
-            // Ignore anything else under /trades/ except /trades/ itself
-            // This includes the card sending and confirmation dialogs
-            if ( url.indexOf('/trades/') !== -1 && url.length > '/trades/'.length ) { return; }
+            // Ignore anything under /trades/ but not /trades/ itself
+            // This ignores the card sending, confirmation dialogs, and
+            //   infinite table scrolling (e.g. /trades/[NUM])
+            if ( url.search(/^\/trades\/\w+/) !== -1 ) { return; }
 
 
             // This is something - maybe us, maybe not - calling loadTableData()
-            // We've already excluded /trades/, so this can only be a simple
-            //   reload or applying a reload with settings (e.x /trades?search=str)
+            // We could match /trades/[NUM] as the infinite table scrolls, but we don't
+            //   want to spam requests, so only refresh outgoing trades on vanilla reloads.
             if ( url.indexOf('/trades') !== -1 ) {
                 this.events.tableLoadComplete = false;
                 this.loadOutgoingTrades();
@@ -768,7 +815,8 @@ var pucaPower = {
 
         // Whenever loadTableData or loadOutgoingTrades finishes we need to know about it.
         $(document).ajaxComplete(function (e, xhr, settings) {
-            var url = settings.url.split('?')[0];
+            // Remove url parameters, then remove trailing frontslashes
+            var url = settings.url.split('?')[0].replace(/\/+$/, '');
             this.debug(4, '.ajaxComplete - ' + url);
 
             // Specifically allow /trades/active
@@ -779,14 +827,16 @@ var pucaPower = {
                 return;
             }
 
-            // Ignore anything else under /trades/ except /trades/ itself
-            // This includes the card sending and confirmation dialogs
-            if ( url.indexOf('/trades/') !== -1 && url.length > '/trades/'.length ) { return; }
+            // NOTE: THIS IS DIFFERENT THAN THE .ajaxSend HOOK
+            //   We allow infinite table scrolling to pass this criteria
+            // Ignore anything under /trades/ but not /trades/ itself or /trades/[NUM]
+            // This ignores the card sending and confirmation dialogs
+            if ( url.search(/^\/trades\/[a-z]+/) !== -1 ) { return; }
 
 
-            // This is something - maybe us, maybe not - calling loadTableData()
-            // We've already excluded /trades/, so this can only be a simple
-            //   reload or applying a reload with settings (e.x /trades?search=str)
+            // A call to loadTableData() completed
+            // It may be vanilla, it may have had search parameters, but regardless,
+            //   we need to re-parse the table data and check for alerts
             if ( url.indexOf('/trades') !== -1 ) {
                 this.parseTradeTable();
                 this.events.tableLoadComplete = true;
@@ -802,6 +852,7 @@ var pucaPower = {
             this.go();
         }.bind(this));
         $('button#stop').click(function () {
+            if ( Math.random() * 100 <= 10 ) { this.shamelessPlug(); }
             this.addNote('Refresh stopped', 'text-warning');
             this.stop();
         }.bind(this));
@@ -853,19 +904,22 @@ var pucaPower = {
 
         // Disable AJAX caching
         $.ajaxSetup({ cache: false });
+            
+        // Disable the infinite scrolling unless the reloader is active
+        $(this.tableStr).infinitescroll('pause');
 
+        
         // Add the settings form by clobbering the help text, add timestamp to prevent caching
-        $('div.explain-text').load(this.formUrl + '?' + (new Date).getTime(), function () {
+        $('div.explain-text').load(this.formUrl + '?' + (new Date()).getTime(), function () {
             this.debug(1, 'Input form loaded');
 
             this.applySettingsToPage();
-
+            
             this.setupListeners();
 
             $('#pucaPowerVersion').text(this.version);
 
-            this.addNote('Do you like Puca Power? Consider <a href="https://www.coinbase.com/checkouts/630f3600438a42cce9fc9aba8b23f744">donating Bitcoins</a>!');
-
+            this.shamelessPlug();
         }.bind(this));
 
 
