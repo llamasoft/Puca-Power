@@ -1,3 +1,19 @@
+##### Version 1.2 (2015-04-31)
+
+- `.ajaxSend` and `.ajaxComplete` handlers cleaned up, comments clarified
+- The infinite scroll feature now works, loading more trades as the user scrolls
+- `loadOutgoingTrades` only fires on vanilla calls to `loadTableData` instead of every call (because of infinite scrolling)
+- Added changelog link to version number
+- Keeps track of all unique trade alerts and their values
+- Added a shameless donation plug
+
+###### Known issues:
+
+Same as issues from v1.1
+
+----------
+
+
 ##### Version 1.1 (2015-04-30)
 
 - Added additional filtering feature for members with less than a specified point value
@@ -5,13 +21,15 @@
 - Refactoring of control IDs and internal variable names
 - JavaScript should no longer load cached version of the control form
 - Added compatibility with UserScripts plugins
+- Fixed issue where trailing front-slash in URL was breaking reload
 
 ###### Known issues:
 
-- None
-
+[Semi-issue] Bundles can trigger alerts even if no possible combination of cards less than a member's current points meets the bundle threshold.  
+For example, Alice has 900 points and wants two 500 point cards.  Alice will still trigger a bundle alert for a threshold of 750.  
 
 ----------
+
 
 ##### Version 1.0a4 (2015-04-23)
 
@@ -25,7 +43,6 @@
 ###### Known issues:
 
 - None
-
 
 ----------
 
