@@ -1,3 +1,13 @@
+##### Version 1.2.1 (2015-05-04)
+
+- Added option to enable/disable infinite scrolling
+- Settings only reset when settingsVersion changes, not every program version
+- Only one donation request can be displayed at a time
+- Only one point warning indicator will appear per table entry
+
+----------
+
+
 ##### Version 1.2 (2015-04-31)
 
 - `.ajaxSend` and `.ajaxComplete` handlers cleaned up, comments clarified

@@ -3,7 +3,7 @@
 
 // ==UserScript==
 // @name            Puca Power
-// @version         1.2
+// @version         1.2.1
 // @namespace       https://github.com/llamasoft/Puca-Power
 // @description     A JavaScript utility for better trading on PucaTrade.com
 // @downloadURL     https://llamasoft.github.io/Puca-Power/pucaPower.js
@@ -16,17 +16,21 @@ var pucaPower = {
 
     /* ===== INTERNAL VARIABLES ===== */
 
-    version: 'v1.2',
+    version: 'v1.2.1',
     formUrl: 'https://llamasoft.github.io/Puca-Power/controls.html',
+    formUrl: 'https://gist.githubusercontent.com/llamasoft/46d4a189aa16e0598fc1/raw/d2146e3a753033776d7e2f61ca35a71a5b1de75c/controls.html',
 
     // Default values for internal settings
     // If you change this structure, you need to update the following:
+    //   loadDefaultSettings
     //   applySettingsToPage
     //   loadSettingsFromPage
     //   setupListeners
     //   controls.html
     defaults: {
         reloadInterval: 60,
+
+        disableInfScroll: true,
 
         alert: {
             onBundle: true,
@@ -54,6 +58,7 @@ var pucaPower = {
     },
 
     // Settings structures
+    settingsVersion: '1.2.1',
     reloadInterval: null,
     alert: null,
     filter: null,
@@ -94,7 +99,7 @@ var pucaPower = {
     // Object of objects of the outgoing (unshipped) trades
     // Each object is {cardQty, totalCardPts}, key is memberName
     outgoingTrades: {},
-    
+
     // Object of trade IDs/trade value
     seenAlerts: {},
 
@@ -120,9 +125,10 @@ var pucaPower = {
     loadDefaultSettings: function () {
         this.debug(2, 'Resetting settings to default values');
 
-        this.reloadInterval = this.defaults.reloadInterval;
-        this.alert          = this.defaults.alert;
-        this.filter         = this.defaults.filter;
+        this.reloadInterval   = this.defaults.reloadInterval;
+        this.disableInfScroll = this.defaults.disableInfScroll;
+        this.alert  = this.defaults.alert;
+        this.filter = this.defaults.filter;
 
         this.applySettingsToPage();
     },
@@ -145,11 +151,13 @@ var pucaPower = {
         this.debug(2, 'Saving settings to local storage');
 
         localStorage.pucaPowerSettings = JSON.stringify({
-            version:        this.version,
-            reloadInterval: this.reloadInterval,
-            alert:          this.alert,
-            filter:         this.filter,
-            debugLevel:     this.debugLevel
+            version:          this.version,
+            settingsVersion:  this.settingsVersion,
+            reloadInterval:   this.reloadInterval,
+            disableInfScroll: this.disableInfScroll,
+            alert:      this.alert,
+            filter:     this.filter,
+            debugLevel: this.debugLevel
         });
 
         this.addNote('Your settings were saved and applied', 'text-success');
@@ -177,16 +185,17 @@ var pucaPower = {
             return;
         }
 
-        if ( settings.version && settings.version !== this.version ) {
+        if ( settings.settingsVersion !== this.settingsVersion ) {
             this.debug(1, 'Settings version mismatch, purging settings');
             this.clearLocalSettings();
             return;
         }
 
-        this.reloadInterval = settings.reloadInterval;
-        this.alert          = settings.alert;
-        this.filter         = settings.filter;
-        this.debugLevel     = settings.debugLevel;
+        this.reloadInterval   = settings.reloadInterval;
+        this.disableInfScroll = settings.disableInfScroll;
+        this.alert      = settings.alert;
+        this.filter     = settings.filter;
+        this.debugLevel = settings.debugLevel;
     },
 
 
@@ -210,6 +219,8 @@ var pucaPower = {
 
         // Don't be a menace
         if ( this.reloadInterval < 10 ) { this.reloadInterval = 10; }
+
+        this.disableInfScroll = $('input#disableInfScroll').prop('checked');
 
         this.alert = {
             onBundle: $('input#alertOnBundle').prop('checked'),
@@ -260,6 +271,8 @@ var pucaPower = {
         this.debug(4, 'Applying active settings to page');
 
         $('input#reloadInterval').val(this.reloadInterval);
+
+        $('input#disableInfScroll').prop('checked', this.disableInfScroll);
 
         // Trade bundle settings
         $('input#alertOnBundle').prop('checked', this.alert.onBundle);
@@ -318,7 +331,7 @@ var pucaPower = {
 
 
         // The play alert sound checkbox is connected to the sound file input
-        isChecked =  $('input#alertPlaySound').prop('checked');
+        isChecked = $('input#alertPlaySound').prop('checked');
         $('input#alertSoundFile').prop('disabled', !isChecked);
 
 
@@ -567,8 +580,8 @@ var pucaPower = {
             if ( this.memberData[memberName].hasAlert ) {
                 // Reveal the row if previously hidden by filtering
                 $(this.tableData[i].dom).show();
-                $(this.tableData[i].dom).data("hasAlert", true);
-                
+                $(this.tableData[i].dom).data('hasAlert', true);
+
                 this.seenAlerts[ this.tableData[i].tradeID ] = this.tableData[i].cardPts;
 
 
@@ -590,8 +603,11 @@ var pucaPower = {
 
                 // Put a mark next to the member's points if they can't afford all their wants
                 if ( this.memberData[memberName].memberPts < this.memberData[memberName].totalCardPts ) {
-                    $(this.tableData[i].dom).find('td.points').prepend('<i class="icon-warning-sign"></i>&nbsp;&nbsp;');
-                    $(this.tableData[i].dom).find('td.points').append('&nbsp;&nbsp;<i class="icon-warning-sign"></i>');
+                    if ( !$(this.tableData[i].dom).data('hasPointWarning') ) {
+                        $(this.tableData[i].dom).data('hasPointWarning', true);
+                        $(this.tableData[i].dom).find('td.points').prepend('<i class="icon-warning-sign"></i>&nbsp;&nbsp;');
+                        $(this.tableData[i].dom).find('td.points').append('&nbsp;&nbsp;<i class="icon-warning-sign"></i>');
+                    }
                 }
             }
         }
@@ -611,33 +627,42 @@ var pucaPower = {
         }
     },
 
-    
-    
+
+
     /* ===== MISC/UTILITY FUNCTIONS ===== */
-    
-    shamelessPlug: function () {
+
+    donationRequest: function () {
+        // If a donation request already exists, don't make another
+        if ( $('li.donationRequest').length > 0 ) { return; }
+
         var paypal    = '<a href="https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=5GF3TD343BS4A">PayPal</a>';
         var bitcoin   = '<a href="https://www.coinbase.com/checkouts/630f3600438a42cce9fc9aba8b23f744">Bitcoin</a>';
         var pucatrade = '<a href="https://pucatrade.com/profiles/show/59386">Puca Trade</a>';
-        
+
         // The sum of all unique alerted trades
         var alertPoints = Object.keys(this.seenAlerts).reduce(function (sum, cur) { return sum + this.seenAlerts[cur]; }.bind(this), 0);
         if ( alertPoints > 0 ) {
             this.addNote('Puca Power has alerted you to <strong>' + alertPoints + ' points</strong> in trades this session.');
         }
-        
+
         this.addNote('<strong>Do you like Puca Power?</strong> <i class="icon-heart"></i> '
-                   + 'Consider donating via ' + paypal + ', ' + bitcoin + ', or ' + pucatrade + '!');
+                   + 'Consider donating via ' + paypal + ', ' + bitcoin + ', or ' + pucatrade + '!',
+                     'donationRequest');
+    },
+
+    news: function () {
+        // Placeholder
+        // In case I need to have a news alert at a later date
     },
 
     knapsack: function (items, knapsackSize) {
         // TODO: return the highest value combination of items
         //   that's less than or equal to knapsackSize
-        
+
         // This will eventually replace the "tradeValue = Math.min(totalCardPts, memberPts);"
         //   logic from checkForAlerts()
     },
-    
+
 
     /* ===== FILTER FUNCTIONS ===== */
 
@@ -696,7 +721,7 @@ var pucaPower = {
 
     // Initiate trade data refresh
     go: function () {
-        
+
         // If a fancybox window is open, stall the reload
         // There's no point reloading the list if the user is currently confirming a trade
         if ( $('.fancybox-inner').length > 0 ) {
@@ -704,7 +729,7 @@ var pucaPower = {
             this.reloadTimeout = setTimeout(this.go.bind(this), 1000);
             return;
         }
-        
+
         this.debug(1, 'Reloading table data');
 
         // Reload settings in case something changed
@@ -726,9 +751,11 @@ var pucaPower = {
             // lastVars may or may not be defined yet
             window.lastVars = $.extend({ intersect: true }, window.lastVars);
         }
-        
-        // Enable the infinite scroll feature while the reloader is active
-        $(this.tableStr).infinitescroll('resume');
+
+        // Optionally enable the infinite scroll feature while the reloader is active
+        if ( !this.disableInfScroll ) {
+            $(this.tableStr).infinitescroll('resume');
+        }
 
         this.events.tableLoadComplete = false;
         this.events.outgoingLoadComplete = false;
@@ -747,8 +774,8 @@ var pucaPower = {
         this.checkForAlerts();
         this.filterTrades();
 
-        // Repeat if 1) we're running, 2) we don't have a reload pending, 3) the reload interval is positive
-        if (this.reloadInterval > 0 && !this.reloadTimeout && this.running) {
+        // Repeat if 1) we're running, 2) we don't have a reload pending, 3) the reload interval is sane
+        if (this.reloadInterval >= 10 && !this.reloadTimeout && this.running) {
             this.reloadTimeout = setTimeout(this.go.bind(this), this.reloadInterval * 1000);
             this.debug(4, 'Refresh timeout set, handle = ' + this.reloadTimeout);
         }
@@ -763,7 +790,7 @@ var pucaPower = {
 
         $('button#start').addClass('btn-success');
         $('button#stop').removeClass('btn-danger');
-        
+
         // Disable the infinite scrolling unless the reloader is active
         $(this.tableStr).infinitescroll('pause');
 
@@ -852,10 +879,26 @@ var pucaPower = {
             this.go();
         }.bind(this));
         $('button#stop').click(function () {
-            if ( Math.random() * 100 <= 10 ) { this.shamelessPlug(); }
+            this.donationRequest();
             this.addNote('Refresh stopped', 'text-warning');
             this.stop();
         }.bind(this));
+        
+        
+        // The infinite scroll option should apply immediately (if we're running)
+        $('input#disableInfScroll').click(function () {
+            var isChecked = $('input#disableInfScroll').prop('checked');
+            
+            if ( this.running ) {
+                if ( isChecked ) {
+                    $(this.tableStr).infinitescroll('pause');
+                    
+                } else {
+                    $(this.tableStr).infinitescroll('resume');
+                }
+            }
+        }.bind(this));
+        
 
         $('button#save').click(function () {
             this.loadSettingsFromPage();
@@ -878,6 +921,7 @@ var pucaPower = {
         $('input#filterCardsByValue').click(this.updatePageState.bind(this));
         $('input#filterMembersByPoints').click(this.updatePageState.bind(this));
 
+        
     },
 
     // Responsible for initial loading and setup
@@ -904,22 +948,23 @@ var pucaPower = {
 
         // Disable AJAX caching
         $.ajaxSetup({ cache: false });
-            
-        // Disable the infinite scrolling unless the reloader is active
+
+        // Disable the infinite scrolling
         $(this.tableStr).infinitescroll('pause');
 
-        
+
         // Add the settings form by clobbering the help text, add timestamp to prevent caching
         $('div.explain-text').load(this.formUrl + '?' + (new Date()).getTime(), function () {
             this.debug(1, 'Input form loaded');
 
             this.applySettingsToPage();
-            
+
             this.setupListeners();
 
             $('#pucaPowerVersion').text(this.version);
 
-            this.shamelessPlug();
+            this.donationRequest();
+            this.news();
         }.bind(this));
 
 
