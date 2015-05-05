@@ -1,9 +1,24 @@
+##### Version 1.2.2 (2015-05-05)
+
+- Members are now grouped by ID, not display name.  Different users with the same display name are no longer considered the same person.
+- Loading of outgoing trades now occurs less often.  This should improve performance.
+- Removed debug line that was accidentally included
+- Tweaked debug output to be more readable
+
+----------
+
+
 ##### Version 1.2.1 (2015-05-04)
 
 - Added option to enable/disable infinite scrolling
 - Settings only reset when settingsVersion changes, not every program version
 - Only one donation request can be displayed at a time
 - Only one point warning indicator will appear per table entry
+
+###### Known issues:
+
+- Knapsack issue from v1.1
+- Different members with the same display name are incorrectly grouped together.  This affects both bundle alerts and add-on alerts. (Thank you erickoller)
 
 ----------
 
