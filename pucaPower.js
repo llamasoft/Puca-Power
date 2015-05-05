@@ -16,9 +16,8 @@ var pucaPower = {
 
     /* ===== INTERNAL VARIABLES ===== */
 
-    version: 'v1.2.1',
+    version: 'v1.2.2',
     formUrl: 'https://llamasoft.github.io/Puca-Power/controls.html',
-    formUrl: 'https://gist.githubusercontent.com/llamasoft/46d4a189aa16e0598fc1/raw/d2146e3a753033776d7e2f61ca35a71a5b1de75c/controls.html',
 
     // Default values for internal settings
     // If you change this structure, you need to update the following:
@@ -66,6 +65,7 @@ var pucaPower = {
     // Status variables
     running: false,
     hasPlayedSound: true,
+    lastOutgoingLoad: 0,
 
     // Handles to setTimeout()/setInterval() in case we need to stop them
     reloadTimeout: null,
@@ -83,11 +83,12 @@ var pucaPower = {
     },
 
     // Array of objects of the loaded trade data
-    // Each entry is {dom, tradeID, memberName, memberPts, cardName, cardPts}
+    // Each entry is {dom, tradeID, memberID, memberName, memberPts, cardName, cardPts}
     tableData: [],
 
-    // Object of objects of the table data grouped by member
+    // Object of objects of the table data grouped by memberID
     // Each object has:
+    //   memberName - The displayed name of the member
     //   memberPts - The number of points the user has available
     //   cardQty - The number of cards the user wants from you
     //   totalCardPts - The sum value of all the cards the user wants from you
@@ -97,7 +98,7 @@ var pucaPower = {
     memberData: {},
 
     // Object of objects of the outgoing (unshipped) trades
-    // Each object is {cardQty, totalCardPts}, key is memberName
+    // Each object is {memberName, cardQty, totalCardPts}, key is memberID
     outgoingTrades: {},
 
     // Object of trade IDs/trade value
@@ -111,8 +112,13 @@ var pucaPower = {
     // debugLevel >3 - Probably noise
     debugLevel: 0,
     debug: function (msgLevel, msg) {
+        var padding;
+        
         if ( msgLevel <= this.debugLevel ) {
-            console.log('[' + msgLevel + '] - ' + msg);
+            // String.prototype.repeat is proposed, but not always supported
+            padding = new Array( Math.min(msgLevel, 10) + 1 ).join('  ');
+            
+            console.log(padding + '[' + msgLevel + '] - ' + msg);
         }
     },
 
@@ -368,7 +374,7 @@ var pucaPower = {
         var tradeID;
         var curRow, curFields;
         var cardName, cardPts;
-        var memberName, memberPts;
+        var memberID, memberName, memberPts;
 
         // For each row in the trade table
         for (i = 0; i < tableRows.length; i++) {
@@ -377,15 +383,21 @@ var pucaPower = {
 
             // Extract the relevant table fields
             tradeID = $(curRow).attr('id');
-            cardName   =           $(curFields).eq(1).text().trim();
+            cardName   = $(curFields).eq(1).text().trim();
             cardPts    = parseInt( $(curFields).eq(2).text(), 10 );
-            memberName =           $(curFields).eq(4).text().trim();
+            
+            // The member field can have multiple <a> elements, but the last one is always the profile link
+            // The other <a> elements are usually the membership level and upgrade link
+            // The past part of the profile URL is the member ID; it is unique, memberName isn't
+            memberID   = $(curFields).eq(4).find('a').last().attr('href').split('/').pop();
+            memberName = $(curFields).eq(4).text().trim();
             memberPts  = parseInt( $(curFields).eq(5).text(), 10 );
 
             // Data per row
             this.tableData.push({
                 dom:        curRow,
                 tradeID:    tradeID,
+                memberID:   memberID,
                 memberName: memberName,
                 memberPts:  memberPts,
                 cardName:   cardName,
@@ -393,9 +405,10 @@ var pucaPower = {
             });
 
             // Data per member
-            if ( !this.memberData[memberName] ) {
+            if ( !this.memberData[memberID] ) {
                 // Make a new entry
-                this.memberData[memberName] = {
+                this.memberData[memberID] = {
+                    memberName: memberName,
                     memberPts: memberPts,
                     cardQty: 1,
                     totalCardPts: cardPts,
@@ -406,8 +419,8 @@ var pucaPower = {
 
             } else {
                 // Update an existing entry
-                this.memberData[memberName].cardQty++;
-                this.memberData[memberName].totalCardPts += cardPts;
+                this.memberData[memberID].cardQty++;
+                this.memberData[memberID].totalCardPts += cardPts;
             }
         }
     },
@@ -430,7 +443,7 @@ var pucaPower = {
             var tableRows = $(data).find('table.datatable tbody tr[id^="user_card"]:contains("Unshipped")');
             var curRow, curFields;
 
-            var memberName;
+            var memberID, memberName;
             var cardPts;
 
             this.outgoingTrades = {};
@@ -439,19 +452,23 @@ var pucaPower = {
                 curRow = $(tableRows).eq(i);
                 curFields = $(curRow).find('td');
 
-                // Thank you StackOverflow! http://stackoverflow.com/a/8851526/477563
                 cardPts = parseInt( $(curFields).eq(3).text(), 10 );
+                
+                memberID = $(curFields).eq(6).find('a.trader').attr('href').split('/').pop();
+                
+                // Thank you StackOverflow! http://stackoverflow.com/a/8851526/477563
                 memberName = $(curFields).eq(6).find('a.trader')
                              .children().remove().end().text().trim();
 
-                if ( !this.outgoingTrades[memberName] ) {
-                    this.outgoingTrades[memberName] = {
+                if ( !this.outgoingTrades[memberID] ) {
+                    this.outgoingTrades[memberID] = {
+                        memberName: memberName,
                         cardQty: 1,
                         totalCardPts: cardPts
                     };
                 } else {
-                    this.outgoingTrades[memberName].cardQty++;
-                    this.outgoingTrades[memberName].totalCardPts += cardPts;
+                    this.outgoingTrades[memberID].cardQty++;
+                    this.outgoingTrades[memberID].totalCardPts += cardPts;
                 }
             }
         }.bind(this));
@@ -471,7 +488,7 @@ var pucaPower = {
     },
 
     addNote: function (alertText, alertClass) {
-        this.debug(3, 'Adding alert item: ' + alertText);
+        this.debug(4, 'Adding alert item: ' + alertText);
 
         $('li#defaultNote').hide();
         $('ul#noteList').append( $('<li class="noteItem">').html(alertText).addClass(alertClass) );
@@ -508,18 +525,19 @@ var pucaPower = {
         var pendingAlerts = [];
         var curAlert = {}; // { msg, style, weight }
 
-        var memberName, memberPts;
+        var memberID, memberName, memberPts;
         var cardQty, totalCardPts;
         var tradeValue;
 
         var rowColor;
 
 
-        // First iterate the individual members
+        // First iterate the individual members by ID
         for (i in this.memberData) {
             if ( !this.memberData.hasOwnProperty(i) ) { continue; }
 
-            memberName   = i;
+            memberID     = i;
+            memberName   = this.memberData[i].memberName;
             memberPts    = this.memberData[i].memberPts;
             cardQty      = this.memberData[i].cardQty;
             totalCardPts = this.memberData[i].totalCardPts;
@@ -548,12 +566,12 @@ var pucaPower = {
 
             // Does this member have outgoing trades?
             // If a user qualifies for bundle and outgoing alerts, the outgoing always has higher priority.
-            if ( this.alert.onOutgoing && this.outgoingTrades[memberName] !== undefined ) {
+            if ( this.alert.onOutgoing && this.outgoingTrades[memberID] !== undefined ) {
                 this.memberData[i].hasAlert = true;
                 this.memberData[i].hasOutgoingAlert = true;
 
                 // The value is increased by how much we're already sending them
-                tradeValue += this.outgoingTrades[memberName].totalCardPts;
+                tradeValue += this.outgoingTrades[memberID].totalCardPts;
 
                 curAlert = {
                     msg: '<strong>' + memberName + ' (' + memberPts + ' points)</strong> '
@@ -574,10 +592,10 @@ var pucaPower = {
 
         // Iterate the table elements and colorize alerts
         for (i = 0; i < this.tableData.length; i++) {
-            memberName = this.tableData[i].memberName;
+            memberID = this.tableData[i].memberID;
             rowColor = null;
 
-            if ( this.memberData[memberName].hasAlert ) {
+            if ( this.memberData[memberID].hasAlert ) {
                 // Reveal the row if previously hidden by filtering
                 $(this.tableData[i].dom).show();
                 $(this.tableData[i].dom).data('hasAlert', true);
@@ -586,12 +604,12 @@ var pucaPower = {
 
 
                 // Colorize if part of a bundle
-                if ( this.alert.colorizeBundleRows && this.memberData[memberName].hasBundleAlert ) {
+                if ( this.alert.colorizeBundleRows && this.memberData[memberID].hasBundleAlert ) {
                     rowColor = this.alert.colorizeBundleColor;
                 }
 
                 // Colorize if has outgoing trades (will override bundle)
-                if ( this.alert.colorizeOutgoingRows && this.memberData[memberName].hasOutgoingAlert ) {
+                if ( this.alert.colorizeOutgoingRows && this.memberData[memberID].hasOutgoingAlert ) {
                     rowColor = this.alert.colorizeOutgoingColor;
                 }
 
@@ -602,7 +620,7 @@ var pucaPower = {
 
 
                 // Put a mark next to the member's points if they can't afford all their wants
-                if ( this.memberData[memberName].memberPts < this.memberData[memberName].totalCardPts ) {
+                if ( this.memberData[memberID].memberPts < this.memberData[memberID].totalCardPts ) {
                     if ( !$(this.tableData[i].dom).data('hasPointWarning') ) {
                         $(this.tableData[i].dom).data('hasPointWarning', true);
                         $(this.tableData[i].dom).find('td.points').prepend('<i class="icon-warning-sign"></i>&nbsp;&nbsp;');
@@ -663,6 +681,7 @@ var pucaPower = {
         //   logic from checkForAlerts()
     },
 
+    time: function () { return (new Date()).getTime(); },
 
     /* ===== FILTER FUNCTIONS ===== */
 
@@ -670,14 +689,15 @@ var pucaPower = {
         this.debug(2, 'Filtering trades');
         var i;
         var filterQty = 0;
-        var memberName, memberPts, hasAlert;
+        var memberID, memberName, memberPts, hasAlert;
         var cardName, cardPts;
         var matchedFilter;
 
         for (i = 0; i < this.tableData.length; i++) {
+            memberID   = this.tableData[i].memberID;
             memberName = this.tableData[i].memberName;
-            memberPts  = this.memberData[memberName].memberPts;
-            hasAlert   = this.memberData[memberName].hasAlert;
+            memberPts  = this.memberData[memberID].memberPts;
+            hasAlert   = this.memberData[memberID].hasAlert;
 
             cardName = this.tableData[i].cardName;
             cardPts  = this.tableData[i].cardPts;
@@ -752,13 +772,12 @@ var pucaPower = {
             window.lastVars = $.extend({ intersect: true }, window.lastVars);
         }
 
-        // Optionally enable the infinite scroll feature while the reloader is active
+        // Optionally enable the infinite scroll feature while the refresher is active
         if ( !this.disableInfScroll ) {
             $(this.tableStr).infinitescroll('resume');
         }
 
         this.events.tableLoadComplete = false;
-        this.events.outgoingLoadComplete = false;
 
         window.loadTableData();
     },
@@ -791,7 +810,7 @@ var pucaPower = {
         $('button#start').addClass('btn-success');
         $('button#stop').removeClass('btn-danger');
 
-        // Disable the infinite scrolling unless the reloader is active
+        // Disable the infinite scrolling unless the refresher is active
         $(this.tableStr).infinitescroll('pause');
 
         // If we have a pending reload, cancel it
@@ -819,6 +838,7 @@ var pucaPower = {
 
             // Specifically allow /trades/active, this is us calling loadOutgoingTrades()
             if ( url.indexOf('/trades/active') !== -1 ) {
+                this.lastOutgoingLoad = this.time();
                 this.events.outgoingLoadComplete = false;
                 return;
             }
@@ -826,15 +846,30 @@ var pucaPower = {
             // Ignore anything under /trades/ but not /trades/ itself
             // This ignores the card sending, confirmation dialogs, and
             //   infinite table scrolling (e.g. /trades/[NUM])
-            if ( url.search(/^\/trades\/\w+/) !== -1 ) { return; }
+            if ( url.search(/^\/trades\/\w+/) !== -1 ) {
+                // If the call contains "confirm", then we need to reload 
+                //   the outgoing trades at the next available opportunity
+                if ( url.indexOf('/trades/confirm') !== -1 ) {
+                    this.debug(3, 'Resetting outgoing trade reload timer, user confirmed a trade');
+                    this.lastOutgoingLoad = 0;
+                }
+                
+                return;
+            }
 
 
             // This is something - maybe us, maybe not - calling loadTableData()
             // We could match /trades/[NUM] as the infinite table scrolls, but we don't
             //   want to spam requests, so only refresh outgoing trades on vanilla reloads.
             if ( url.indexOf('/trades') !== -1 ) {
-                this.events.tableLoadComplete = false;
-                this.loadOutgoingTrades();
+                // Only reload the outgoing trades if
+                // 1) The user clicked a 
+                // 2) A reasonable length of time has passed (2 minutes)              
+                if ( this.time() - this.lastOutgoingLoad > 120 * 1000 ) {
+                    this.events.tableLoadComplete = false;
+                    this.loadOutgoingTrades();
+                }
+                
                 return;
             }
         }.bind(this));
@@ -886,6 +921,7 @@ var pucaPower = {
         
         
         // The infinite scroll option should apply immediately (if we're running)
+        // The infinite scroll should always be disabled when the refresher is paused
         $('input#disableInfScroll').click(function () {
             var isChecked = $('input#disableInfScroll').prop('checked');
             
@@ -954,7 +990,7 @@ var pucaPower = {
 
 
         // Add the settings form by clobbering the help text, add timestamp to prevent caching
-        $('div.explain-text').load(this.formUrl + '?' + (new Date()).getTime(), function () {
+        $('div.explain-text').load(this.formUrl + '?' + this.time(), function () {
             this.debug(1, 'Input form loaded');
 
             this.applySettingsToPage();
