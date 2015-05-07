@@ -1,3 +1,19 @@
+##### Version 1.2.4 (2015-05-07)
+
+- Table reload gets postponed if something triggers the reload early (e.g. card confirmation)
+- Fixed an issue where bugged members in the outgoing trade list would case the script to fail
+- Infinite scrolling table no longer triggers filters/alerts while Puca Power is disabled
+- Explanation of the "infinite scrolling" option clarified
+- Refactoring of internal codebase
+    - `ajaxSend` and `ajaxComplete` hooks rewritten
+    - Status variables relocated to be closer to their relevant code
+    - Standardized usage of "reload" vs "refresh"
+- Updated README to include visual examples of usage methods for Chrome and Firefox
+- Milestone: pucaPower.js crossed 1024 lines of code
+    
+----------
+
+
 ##### Version 1.2.2 (2015-05-05)
 
 - Members are now grouped by ID, not display name.  Different users with the same display name are no longer considered the same person.

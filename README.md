@@ -23,36 +23,49 @@ Puca Power
 ### Usage
 
 
-**Copy/Paste Method:**
+#### Copy/Paste Method
 
-- Go to the [PucaTrade.com trading area](https://pucatrade.com/trades)
-- Paste the following code into your browser's JavaScript console (Chrome: Ctrl + Shift + J, Firefox: Ctrl + Shift + K):  
+1. Go to the PucaTrade.com trading area: https://pucatrade.com/trades
+2. Open your browser's JavaScript console
+    - Chrome: Ctrl + Shift + J
+    - Firefox: Ctrl + Shift + K
+3. Paste the following JavaScript into the JavaScript console, then press enter
+    - [Chrome demo](http://i.imgur.com/ObMxcpL.png)
+    - [Firefox demo](http://i.imgur.com/9pXv3lW.png) (if you get a warning about pasting code into the console type `allow pasting`)
 ```JavaScript
 javascript:(function () { $('<script>').attr('src', 'https://llamasoft.github.io/Puca-Power/pucaPower.js?'+(new Date()).getTime()).appendTo('head'); })();
 ```
-- Use the on-screen settings to configure and run Puca Power
+
+Use the on-screen controls to configure and run Puca Power
 
 
-**Bookmarklet Method:**
+#### Bookmarklet Method
 
-- Create a new bookmark and name it "Puca Power"
-- Replace the bookmark URL with code from the copy/paste method above, then save the bookmark
-- Go to the [PucaTrade.com trading area](https://pucatrade.com/trades) and click the bookmark (it will have the same effect as copy/pasting the code into the JavaScript console)
-- Use the on-screen settings to configure and run Puca Power
+1. Create a new bookmark and name it "Puca Power"
+2. Replace the bookmark URL with the code from the copy/paste method, then save the bookmark
+    - [Chrome demo](http://i.imgur.com/jMiQJAC.png)
+    - [Firefox demo](http://i.imgur.com/BarNMpN.png)
+3. Go to the PucaTrade.com trading area: https://pucatrade.com/trades
+4. Click the bookmark you created
+
+Use the on-screen controls to configure and run Puca Power
 
 
-**UserScript Method:**
+#### UserScript Method
 
-- Install a UserScript browser extension (e.g. Greasemonkey or Tampermonkey)
-- Install [this script](https://llamasoft.github.io/Puca-Power/pucaPower.js) using your UserScript extension
-- The script will run automatically when you visit Puca Trade's trading area
+1. You should only use this method if you already have a UserScript extension installed for your browser, otherwise simply use the bookmarklet method instead
+    - Chrome: [TamperMonkey](https://chrome.google.com/webstore/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo?hl=en)
+    - Firefox: [GreaseMonkey](https://addons.mozilla.org/en-Us/firefox/addon/greasemonkey/)
+2. Install the following script: https://llamasoft.github.io/Puca-Power/pucaPower.js
+3. Puca Power should automatically run when you visit the PucaTrade.com trading area
 
 
 ### Preview
 
-![ ](http://i.imgur.com/pJ9pBD2.png)
+![ ](http://i.imgur.com/P6qoD3p.png)
 
 
 ###### Disclaimer
 
 This software is provided on an "as is" basis and without warranty, either express or implied, including, without limitation, the warranties of non-infringement, merchantability, or fitness for a particular purpose.  
+Please do not use or modify Puca Power in such a way that it violates the PucaTrade.com [Terms of Service](https://pucatrade.com/terms).
