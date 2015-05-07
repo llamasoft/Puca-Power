@@ -1,6 +1,6 @@
 Puca Power
 =============
-**Version:** 1.2.2 (2015-05-05)
+**Version:** 1.2.4 (2015-05-07)
 
 
 
@@ -13,7 +13,7 @@ Puca Power
 
 ### Features
 
-- Automatic trade list refreshing
+- Automatic trade list reloading
 - Alerts for valuable trade bundles
 - Alerts for add-on trades
 - Filtering of low value cards
@@ -27,8 +27,8 @@ Puca Power
 
 1. Go to the PucaTrade.com trading area: https://pucatrade.com/trades
 2. Open your browser's JavaScript console
-    - Chrome: Ctrl + Shift + J
-    - Firefox: Ctrl + Shift + K
+    - Chrome:  <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>J</kbd>
+    - Firefox: <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>K</kbd>
 3. Paste the following JavaScript into the JavaScript console, then press enter
     - [Chrome demo](http://i.imgur.com/ObMxcpL.png)
     - [Firefox demo](http://i.imgur.com/9pXv3lW.png) (if you get a warning about pasting code into the console type `allow pasting`)
