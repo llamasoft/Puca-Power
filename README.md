@@ -39,7 +39,7 @@ javascript:(function () { $('<script>').attr('src', 'https://llamasoft.github.io
 Use the on-screen controls to configure and run Puca Power
 
 
-#### Bookmarklet Method
+#### Bookmarklet Method (Recommended)
 
 1. Create a new bookmark and name it "Puca Power"
 2. Replace the bookmark URL with the code from the copy/paste method, then save the bookmark
