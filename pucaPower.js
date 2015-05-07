@@ -3,7 +3,7 @@
 
 // ==UserScript==
 // @name            Puca Power
-// @version         1.2.1
+// @version         1.2.4
 // @namespace       https://github.com/llamasoft/Puca-Power
 // @description     A JavaScript utility for better trading on PucaTrade.com
 // @downloadURL     https://llamasoft.github.io/Puca-Power/pucaPower.js
@@ -16,8 +16,9 @@ var pucaPower = {
 
     /* ===== INTERNAL VARIABLES ===== */
 
-    version: 'v1.2.2',
+    version: 'v1.2.4',
     formUrl: 'https://llamasoft.github.io/Puca-Power/controls.html',
+
 
     // Default values for internal settings
     // If you change this structure, you need to update the following:
@@ -27,6 +28,10 @@ var pucaPower = {
     //   setupListeners
     //   controls.html
     defaults: {
+        // Reload the trade table after reloadInterval seconds since the last reload
+        // NOTE: This may be different than "reload every reloadInterval seconds" because
+        //   there are actions that reload the table that are beyond our control
+        //   (e.g. sending a card, changing country filters, searching for a card)
         reloadInterval: 60,
 
         disableInfScroll: true,
@@ -55,22 +60,12 @@ var pucaPower = {
             membersMinPoints: 400
         }
     },
+    settingsVersion: '1.2.1',
 
     // Settings structures
-    settingsVersion: '1.2.1',
     reloadInterval: null,
     alert: null,
     filter: null,
-
-    // Status variables
-    running: false,
-    hasPlayedSound: true,
-    lastOutgoingLoad: 0,
-
-    // Handles to setTimeout()/setInterval() in case we need to stop them
-    reloadTimeout: null,
-    changeTimeout: null,
-    titleAlertTimeout: null,
 
     // Selector string to pull the trade table rows
     tableStr: 'table.infinite tbody',
@@ -113,11 +108,11 @@ var pucaPower = {
     debugLevel: 0,
     debug: function (msgLevel, msg) {
         var padding;
-        
+
         if ( msgLevel <= this.debugLevel ) {
             // String.prototype.repeat is proposed, but not always supported
             padding = new Array( Math.min(msgLevel, 10) + 1 ).join('  ');
-            
+
             console.log(padding + '[' + msgLevel + '] - ' + msg);
         }
     },
@@ -213,7 +208,7 @@ var pucaPower = {
         var safeParse = function (value, nanFallback, negFallback) {
             var temp = parseInt(value, 10);
             if ( isNaN(temp) ) { temp = nanFallback; }
-            if (  temp <= 0  ) { temp = negFallback; }
+            if ( temp <= 0 )   { temp = negFallback; }
             return temp;
         };
 
@@ -355,6 +350,7 @@ var pucaPower = {
     /* ===== TABLE PARSING FUNCTIONS ===== */
 
     // Load the trade table data into manageable structures (tableData and memberData)
+    // This is usually called after loadTableData() completes
     parseTradeTable: function () {
         // Don't bother parsing the data if auto-match is turned off
         if ( !$('input.niceToggle.intersect').prop('checked') ) {
@@ -385,7 +381,7 @@ var pucaPower = {
             tradeID = $(curRow).attr('id');
             cardName   = $(curFields).eq(1).text().trim();
             cardPts    = parseInt( $(curFields).eq(2).text(), 10 );
-            
+
             // The member field can have multiple <a> elements, but the last one is always the profile link
             // The other <a> elements are usually the membership level and upgrade link
             // The past part of the profile URL is the member ID; it is unique, memberName isn't
@@ -425,17 +421,24 @@ var pucaPower = {
         }
     },
 
+
     // Loads the and parses the outgoing trade information
     //   into a manageable structure (outgoingTrades)
-    loadOutgoingTrades: function () {
+    lastOutgoingLoad: 0,
+    loadOutgoingTrades: function (force) {
         this.debug(2, 'Fetching outgoing trades');
 
-        // This is handled by the .ajaxSend and .ajaxComplete events
-        // It's not pretty, but at least it's all in one place
+        // Only run if forced or at least 120 seconds since the last run
+        if ( force || this.time() - this.lastOutgoingLoad < 120 * 1000 ) { return; }
 
-        // this.events.outgoingLoadComplete = false;
 
-        // Parse the outgoing trades table
+        this.events.outgoingLoadComplete = false;
+        this.lastOutgoingLoad = this.time();
+
+
+        // Initiate an AJAX request to get the outgoing trades
+        // When it returns, parse the outgoing trades table then
+        //   call reloadComplete() to parse/filter trades
         $.get('/trades/active', function (data) {
             this.debug(3, 'Got outgoing trades');
 
@@ -448,14 +451,23 @@ var pucaPower = {
 
             this.outgoingTrades = {};
 
+            // For each row of unshipped trades
             for (i = 0; i < tableRows.length; i++) {
                 curRow = $(tableRows).eq(i);
                 curFields = $(curRow).find('td');
 
                 cardPts = parseInt( $(curFields).eq(3).text(), 10 );
-                
+
+                // Some member entries can become bugged and somehow lack a profile link
+                // We don't care why they're bugged, but trying to parse them would be dumb
+                if ( $(curFields).eq(6).find('a.trader').length < 1 ) {
+                    this.debug(0, 'Warning: bugged outgoing trade detected, html = '
+                                  + $(curFields).eq(6).html().replace(/\s+/g, ' '));
+                    continue;
+                }
+
                 memberID = $(curFields).eq(6).find('a.trader').attr('href').split('/').pop();
-                
+
                 // Thank you StackOverflow! http://stackoverflow.com/a/8851526/477563
                 memberName = $(curFields).eq(6).find('a.trader')
                              .children().remove().end().text().trim();
@@ -466,11 +478,15 @@ var pucaPower = {
                         cardQty: 1,
                         totalCardPts: cardPts
                     };
+
                 } else {
                     this.outgoingTrades[memberID].cardQty++;
                     this.outgoingTrades[memberID].totalCardPts += cardPts;
                 }
             }
+
+            this.events.outgoingLoadComplete = true;
+            this.reloadComplete();
         }.bind(this));
     },
 
@@ -494,6 +510,7 @@ var pucaPower = {
         $('ul#noteList').append( $('<li class="noteItem">').html(alertText).addClass(alertClass) );
     },
 
+    titleAlertTimeout: null,
     setTitleAlert: function (msg, delay) {
         if ( this.titleAlertTimeout ) { return; }
         if ( delay === undefined ) { delay = 5000; }
@@ -511,6 +528,7 @@ var pucaPower = {
         document.title = this.origTitle;
     },
 
+    hasPlayedSound: true,
     playAlertSound: function () {
         if ( this.alert.playSound && !this.hasPlayedSound ) {
             $('audio#alertSound').trigger('play');
@@ -681,7 +699,23 @@ var pucaPower = {
         //   logic from checkForAlerts()
     },
 
+    // Returns the current time in milliseconds since epoch
     time: function () { return (new Date()).getTime(); },
+
+    // Enables the auto-match feature of the trade table
+    // This is required if we want any of the alerts to be valid
+    enableAutoMatch: function () {
+        if ( !$('input.niceToggle.intersect').prop('checked') ) {
+            this.debug(2, 'Enabling auto-match');
+            $('input.niceToggle.intersect').prop('checked', true);
+            $('label.niceToggle.intersect').addClass('on');
+
+            // lastVars may or may not be defined yet
+            window.lastVars = $.extend({ intersect: true }, window.lastVars);
+        }
+    },
+
+
 
     /* ===== FILTER FUNCTIONS ===== */
 
@@ -710,7 +744,7 @@ var pucaPower = {
 
             // Filter cards by value
             if ( this.filter.cardsByValue && cardPts < this.filter.cardsMinValue ) {
-                this.debug(4, 'Filtering trade: ' + cardName + ' (' + cardPts + ')');
+                this.debug(5, 'Filtering trade: ' + cardName + ' (' + cardPts + ')');
                 matchedFilter = true;
 
             // Filter members by points
@@ -739,7 +773,12 @@ var pucaPower = {
 
     /* === DRIVER FUNCTIONS === */
 
-    // Initiate trade data refresh
+    // Initiate trade data reload
+    // This kicks off the loadTableData() function which
+    //   kicks off loadOutgoingTrades() via .ajaxSend hook if necessary
+    // Once all the async calls finish, they each attempt
+    //   to call reloadComplete() but only the final call succeeds
+    running: false,
     go: function () {
 
         // If a fancybox window is open, stall the reload
@@ -763,40 +802,62 @@ var pucaPower = {
         $('button#stop').addClass('btn-danger');
 
         // Auto-match must be on, otherwise things get weird with alerts and filtering.
-        if ( !$('input.niceToggle.intersect').prop('checked') ) {
-            this.debug(2, 'Enabling auto-match');
-            $('input.niceToggle.intersect').prop('checked', true);
-            $('label.niceToggle.intersect').addClass('on');
+        this.enableAutoMatch();
 
-            // lastVars may or may not be defined yet
-            window.lastVars = $.extend({ intersect: true }, window.lastVars);
-        }
 
-        // Optionally enable the infinite scroll feature while the refresher is active
+        // Optionally enable the infinite scroll feature while the reloader is active
         if ( !this.disableInfScroll ) {
             $(this.tableStr).infinitescroll('resume');
         }
 
-        this.events.tableLoadComplete = false;
 
+        this.events.tableLoadComplete = false;
         window.loadTableData();
     },
 
     // The trade table finished updating and we can now load the data
-    // This can also be triggered by the infinite table having data added
+    // This can also be triggered by the infinite table adding an extra page
     reloadComplete: function () {
         // We will be called multiple times from the .ajaxComplete handler
         //   but we will only run once (when all of the events are ready)
         if ( !this.events.tableLoadComplete || !this.events.outgoingLoadComplete ) { return; }
 
+        // If we're not running, don't do anything
+        if ( !this.running ) { return; }
+
+
         this.clearAllNotes();
         this.checkForAlerts();
         this.filterTrades();
 
-        // Repeat if 1) we're running, 2) we don't have a reload pending, 3) the reload interval is sane
-        if (this.reloadInterval >= 10 && !this.reloadTimeout && this.running) {
+        // A reload is automatically queued when a vanilla table reload starts,
+        //   see .ajaxSend handler in setupListeners()
+        this.queueReload();
+    },
+
+    // Queues or requeues a table reload
+    reloadTimeout: null,
+    queueReload: function () {
+        // If we're not running, don't queue a reload
+        if ( !this.running ) { return; }
+
+        // If a reload is already pending, cancel it so we can reschedule it
+        this.cancelReload();
+
+        // If the reloadInterval is sane, queue up a reload
+        if ( this.reloadInterval >= 10 ) {
             this.reloadTimeout = setTimeout(this.go.bind(this), this.reloadInterval * 1000);
-            this.debug(4, 'Refresh timeout set, handle = ' + this.reloadTimeout);
+            this.debug(4, 'Reload queued');
+        }
+    },
+
+    // Cancels a pending reload
+    cancelReload: function () {
+        // If a reload is already pending, cancel it so we can reschedule it
+        if ( this.reloadTimeout ) {
+            clearTimeout(this.reloadTimeout);
+            this.reloadTimeout = null;
+            this.debug(4, 'Reload canceled');
         }
     },
 
@@ -810,15 +871,13 @@ var pucaPower = {
         $('button#start').addClass('btn-success');
         $('button#stop').removeClass('btn-danger');
 
-        // Disable the infinite scrolling unless the refresher is active
+        // Disable the infinite scrolling unless the reloader is active
         $(this.tableStr).infinitescroll('pause');
 
         // If we have a pending reload, cancel it
-        if (this.reloadTimeout) {
-            clearTimeout(this.reloadTimeout);
-            this.reloadTimeout = null;
-        }
+        this.cancelReload();
     },
+
 
 
     /* === SETUP FUNCTIONS === */
@@ -826,9 +885,10 @@ var pucaPower = {
     // Responsible for setting up event listeners and handlers
     setupListeners: function () {
 
-        // Whenever loadTableData is called we need to reload our list of outgoing trades.
-        // The cleanest way of doing this is to hook the .ajaxSend() event.
+        // Hook all AJAX requests
+        // This lets us detect certain activities and react to them
         $(document).ajaxSend(function (e, xhr, settings) {
+
             // Remove url parameters, then remove trailing frontslashes
             var url = settings.url.split('?')[0].replace(/\/+$/, '');
             this.debug(4, '.ajaxSend - ' + url);
@@ -836,105 +896,114 @@ var pucaPower = {
             // Suppress fancybox loading animation
             $.fancybox.hideLoading();
 
-            // Specifically allow /trades/active, this is us calling loadOutgoingTrades()
-            if ( url.indexOf('/trades/active') !== -1 ) {
-                this.lastOutgoingLoad = this.time();
-                this.events.outgoingLoadComplete = false;
-                return;
-            }
 
-            // Ignore anything under /trades/ but not /trades/ itself
-            // This ignores the card sending, confirmation dialogs, and
-            //   infinite table scrolling (e.g. /trades/[NUM])
-            if ( url.search(/^\/trades\/\w+/) !== -1 ) {
-                // If the call contains "confirm", then we need to reload 
+            // If we're not running, we don't care about hooking events
+            // But hey, at least the fancybox loading animation got suppressed
+            if ( !this.running ) { return; }
+
+
+            // Determine the AJAX request by the URL it's fetching
+            if ( url.indexOf('/trades/active') !== -1 ) {
+                // This is us loading the outgoing trades
+                // No action is required
+
+            } else if ( url.search(/^\/trades\/[A-Za-z_]+/) !== -1 ) {
+                // This is a call to something under /trades/ that isn't a trade table fetch
+                // It could be a card confirmation dialog, a lock release,
+                //   or the user committing to send a card
+
+                // If the call is a card confirmation, we need to reload
                 //   the outgoing trades at the next available opportunity
                 if ( url.indexOf('/trades/confirm') !== -1 ) {
                     this.debug(3, 'Resetting outgoing trade reload timer, user confirmed a trade');
                     this.lastOutgoingLoad = 0;
                 }
-                
-                return;
-            }
 
+            } else {
+                // We've ruled out everything else; this is a trade table fetch
+                // It can come in three forms
+                //   /trades or /trades/ -> vanilla reload, getting the first page of trades
+                //   /trades/[NUM]       -> fetching a specific page of trades
 
-            // This is something - maybe us, maybe not - calling loadTableData()
-            // We could match /trades/[NUM] as the infinite table scrolls, but we don't
-            //   want to spam requests, so only refresh outgoing trades on vanilla reloads.
-            if ( url.indexOf('/trades') !== -1 ) {
-                // Only reload the outgoing trades if
-                // 1) The user clicked a 
-                // 2) A reasonable length of time has passed (2 minutes)              
-                if ( this.time() - this.lastOutgoingLoad > 120 * 1000 ) {
-                    this.events.tableLoadComplete = false;
-                    this.loadOutgoingTrades();
+                if ( url.search(/^\/trades\/\d+/) !== -1 ) {
+                    // Fetching a specific page of trades
+                    // No action required
+
+                } else {
+                    // Vanilla reload
+                    // Load the outgoing trades if required
+                    if ( this.time() - this.lastOutgoingLoad > 120 * 1000 ) {
+                        this.loadOutgoingTrades();
+                    }
                 }
-                
-                return;
             }
+
         }.bind(this));
 
 
-        // Whenever loadTableData or loadOutgoingTrades finishes we need to know about it.
+        // Hook all AJAX completions
         $(document).ajaxComplete(function (e, xhr, settings) {
+
             // Remove url parameters, then remove trailing frontslashes
             var url = settings.url.split('?')[0].replace(/\/+$/, '');
             this.debug(4, '.ajaxComplete - ' + url);
 
-            // Specifically allow /trades/active
-            // This is us calling loadOutgoingTrades()
+            // If we're not running, we don't need to handle anything
+            if ( !this.running ) { return; }
+
+            // Determine the AJAX request by the URL it's fetching
             if ( url.indexOf('/trades/active') !== -1 ) {
-                this.events.outgoingLoadComplete = true;
-                this.reloadComplete();
-                return;
-            }
+                // This is us loading the outgoing trades
+                // Handling has been relocated to loadOutgoingTrades()
+                // No action is required
 
-            // NOTE: THIS IS DIFFERENT THAN THE .ajaxSend HOOK
-            //   We allow infinite table scrolling to pass this criteria
-            // Ignore anything under /trades/ but not /trades/ itself or /trades/[NUM]
-            // This ignores the card sending and confirmation dialogs
-            if ( url.search(/^\/trades\/[a-z]+/) !== -1 ) { return; }
+            } else if ( url.search(/^\/trades\/[A-Za-z_]+/) !== -1 ) {
+                // This is a call to something under /trades/ that isn't a trade table fetch
+                // It could be a card confirmation dialog, a lock release,
+                //   or the user committing to send a card
+                // No action is required
 
+            } else {
+                // We've ruled out everything else; this is a trade table fetch
+                // It can come in three forms
+                //   /trades or /trades/ -> vanilla reload, getting the first page of trades
+                //   /trades/[NUM]       -> fetching a specific page of trades
 
-            // A call to loadTableData() completed
-            // It may be vanilla, it may have had search parameters, but regardless,
-            //   we need to re-parse the table data and check for alerts
-            if ( url.indexOf('/trades') !== -1 ) {
+                // On ANY table fetch we need to re-apply filters and check for alerts
                 this.parseTradeTable();
                 this.events.tableLoadComplete = true;
                 this.reloadComplete();
-                return;
             }
         }.bind(this));
 
 
         // Button and input listeners to keep the settings form pretty
         $('button#start').click(function () {
-            this.addNote('Refresh started', 'text-success');
+            this.addNote('Reload started', 'text-success');
             this.go();
         }.bind(this));
         $('button#stop').click(function () {
             this.donationRequest();
-            this.addNote('Refresh stopped', 'text-warning');
+            this.addNote('Reload stopped', 'text-warning');
             this.stop();
         }.bind(this));
-        
-        
+
+
         // The infinite scroll option should apply immediately (if we're running)
-        // The infinite scroll should always be disabled when the refresher is paused
+        // The infinite scroll should always be disabled when the reloader is paused
         $('input#disableInfScroll').click(function () {
             var isChecked = $('input#disableInfScroll').prop('checked');
-            
+
             if ( this.running ) {
                 if ( isChecked ) {
                     $(this.tableStr).infinitescroll('pause');
-                    
+
                 } else {
                     $(this.tableStr).infinitescroll('resume');
                 }
             }
         }.bind(this));
-        
+
 
         $('button#save').click(function () {
             this.loadSettingsFromPage();
@@ -957,7 +1026,7 @@ var pucaPower = {
         $('input#filterCardsByValue').click(this.updatePageState.bind(this));
         $('input#filterMembersByPoints').click(this.updatePageState.bind(this));
 
-        
+
     },
 
     // Responsible for initial loading and setup
