@@ -799,7 +799,10 @@ var pucaPower = {
         this.hasPlayedSound = false;
 
         $('button#start').removeClass('btn-success');
+        $('button#start').prop('disabled', true);
+
         $('button#stop').addClass('btn-danger');
+        $('button#stop').prop('disabled', false);
 
         // Auto-match must be on, otherwise things get weird with alerts and filtering.
         this.enableAutoMatch();
@@ -869,7 +872,10 @@ var pucaPower = {
         this.hasAlerted = true;
 
         $('button#start').addClass('btn-success');
+        $('button#start').prop('disabled', false);
+
         $('button#stop').removeClass('btn-danger');
+        $('button#stop').prop('disabled', true);
 
         // Disable the infinite scrolling unless the reloader is active
         $(this.tableStr).infinitescroll('pause');
@@ -907,13 +913,14 @@ var pucaPower = {
                 // This is us loading the outgoing trades
                 // No action is required
 
-            } else if ( url.search(/^\/trades\/[A-Za-z_]+/) !== -1 ) {
+            } else if ( url.search(/^\/trades\/[A-Za-z_\/]+/) !== -1 ) {
                 // This is a call to something under /trades/ that isn't a trade table fetch
                 // It could be a card confirmation dialog, a lock release,
                 //   or the user committing to send a card
 
                 // If the call is a card confirmation, we need to reload
                 //   the outgoing trades at the next available opportunity
+                // (Which should be pretty soon, closing the dialog triggers a table reload)
                 if ( url.indexOf('/trades/confirm') !== -1 ) {
                     this.debug(3, 'Resetting outgoing trade reload timer, user confirmed a trade');
                     this.lastOutgoingLoad = 0;
@@ -957,7 +964,7 @@ var pucaPower = {
                 // Handling has been relocated to loadOutgoingTrades()
                 // No action is required
 
-            } else if ( url.search(/^\/trades\/[A-Za-z_]+/) !== -1 ) {
+            } else if ( url.search(/^\/trades\/[A-Za-z_\/]+/) !== -1 ) {
                 // This is a call to something under /trades/ that isn't a trade table fetch
                 // It could be a card confirmation dialog, a lock release,
                 //   or the user committing to send a card
@@ -1067,6 +1074,8 @@ var pucaPower = {
             this.setupListeners();
 
             $('#pucaPowerVersion').text(this.version);
+
+            $('button#stop').prop('disabled', true);
 
             this.donationRequest();
             this.news();
