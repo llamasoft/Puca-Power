@@ -1,3 +1,4 @@
 # Ignore test documents
 test*
 .settings
+*.bat
