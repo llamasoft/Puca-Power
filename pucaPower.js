@@ -78,13 +78,14 @@ var pucaPower = {
     },
 
     // Array of objects of the loaded trade data
-    // Each entry is {dom, tradeID, memberID, memberName, memberPts, cardName, cardPts}
+    // Each entry is {dom, tradeID, memberID, memberName, memberPts, country, cardName, cardPts}
     tableData: [],
 
     // Object of objects of the table data grouped by memberID
     // Each object has:
     //   memberName - The displayed name of the member
     //   memberPts - The number of points the user has available
+    //   country - The country associated with the member
     //   cardQty - The number of cards the user wants from you
     //   totalCardPts - The sum value of all the cards the user wants from you
     //   hasAlert - A flag that's true if the user has some kind of alert (see below)
@@ -98,6 +99,7 @@ var pucaPower = {
 
     // Object of trade IDs/trade value
     seenAlerts: {},
+    sentTrades: 0,
 
     // Enable debug messages
     // debugLevel  0 - Errors and trade alerts
@@ -371,6 +373,7 @@ var pucaPower = {
         var curRow, curFields;
         var cardName, cardPts;
         var memberID, memberName, memberPts;
+        var country;
 
         // For each row in the trade table
         for (i = 0; i < tableRows.length; i++) {
@@ -388,6 +391,8 @@ var pucaPower = {
             memberID   = $(curFields).eq(4).find('a').last().attr('href').split('/').pop();
             memberName = $(curFields).eq(4).text().trim();
             memberPts  = parseInt( $(curFields).eq(5).text(), 10 );
+            
+            country = $(curFields).eq(6).find('i.flag').attr('title').trim();
 
             // Data per row
             this.tableData.push({
@@ -396,6 +401,7 @@ var pucaPower = {
                 memberID:   memberID,
                 memberName: memberName,
                 memberPts:  memberPts,
+                country:    country,
                 cardName:   cardName,
                 cardPts:    cardPts
             });
@@ -406,6 +412,7 @@ var pucaPower = {
                 this.memberData[memberID] = {
                     memberName: memberName,
                     memberPts: memberPts,
+                    country: country,
                     cardQty: 1,
                     totalCardPts: cardPts,
                     hasAlert: false,
@@ -675,6 +682,11 @@ var pucaPower = {
         var bitcoin   = '<a href="https://www.coinbase.com/checkouts/630f3600438a42cce9fc9aba8b23f744">Bitcoin</a>';
         var pucatrade = '<a href="https://pucatrade.com/profiles/show/59386">Puca Trade</a>';
 
+
+        if ( this.sentTrades > 0 ) {
+            this.addNote('Puca Power has helped you send <strong>' + this.sentTrades + ' trades</strong> this session.');
+        }
+
         // The sum of all unique alerted trades
         var alertPoints = Object.keys(this.seenAlerts).reduce(function (sum, cur) { return sum + this.seenAlerts[cur]; }.bind(this), 0);
         if ( alertPoints > 0 ) {
@@ -924,6 +936,7 @@ var pucaPower = {
                 if ( url.indexOf('/trades/confirm') !== -1 ) {
                     this.debug(3, 'Resetting outgoing trade reload timer, user confirmed a trade');
                     this.lastOutgoingLoad = 0;
+                    this.sentTrades++;
                 }
 
             } else {
