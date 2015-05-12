@@ -2,3 +2,4 @@
 test*
 .settings
 *.bat
+*.ps1

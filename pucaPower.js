@@ -381,9 +381,9 @@ var pucaPower = {
             curFields = $(curRow).find('td');
 
             // Extract the relevant table fields
-            tradeID = $(curRow).attr('id');
-            cardName   = $(curFields).eq(1).text().trim();
-            cardPts    = parseInt( $(curFields).eq(2).text(), 10 );
+            tradeID  = $(curRow).attr('id');
+            cardName = $(curFields).eq(1).text().trim();
+            cardPts  = parseInt( $(curFields).eq(2).text(), 10 );
 
             // The member field can have multiple <a> elements, but the last one is always the profile link
             // The other <a> elements are usually the membership level and upgrade link
@@ -392,7 +392,9 @@ var pucaPower = {
             memberName = $(curFields).eq(4).text().trim();
             memberPts  = parseInt( $(curFields).eq(5).text(), 10 );
             
-            country = $(curFields).eq(6).find('i.flag').attr('title').trim();
+            // Pulling from curRow, not curFields because the country column position
+            //   depends on membership level as rare-level users have an extra column
+            country = $(curRow).find('i.flag').attr('title').trim();
 
             // Data per row
             this.tableData.push({
@@ -552,6 +554,7 @@ var pucaPower = {
 
         var memberID, memberName, memberPts;
         var cardQty, totalCardPts;
+        var country;
         var tradeValue;
 
         var rowColor;
@@ -566,6 +569,7 @@ var pucaPower = {
             memberPts    = this.memberData[i].memberPts;
             cardQty      = this.memberData[i].cardQty;
             totalCardPts = this.memberData[i].totalCardPts;
+            country      = this.memberData[i].country;
 
 
             // The bundle is only worth what the member can actually pay for
