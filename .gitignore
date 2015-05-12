@@ -1,2 +1,5 @@
 # Ignore test documents
 test*
+.settings
+*.bat
+*.ps1
