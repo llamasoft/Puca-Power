@@ -1,5 +1,5 @@
 /*jslint browser: true, devel: true, plusplus: true, sloppy: true, unparam: true, vars: true, white: true */
-/* global loadTableData, $ */
+/* global loadTableData, $, _gaq */
 
 // ==UserScript==
 // @name            Puca Power
@@ -81,6 +81,10 @@ var pucaPower = {
     // Each entry is {dom, tradeID, memberID, memberName, memberPts, country, cardName, cardPts}
     tableData: [],
 
+    // Object of card information
+    // Each entry is {cardSet, cardName, cardPts}, key is trade ID
+    cardData: {},
+
     // Object of objects of the table data grouped by memberID
     // Each object has:
     //   memberName - The displayed name of the member
@@ -97,7 +101,7 @@ var pucaPower = {
     // Each object is {memberName, cardQty, totalCardPts}, key is memberID
     outgoingTrades: {},
 
-    // Object of trade IDs/trade value
+    // Object of trade IDs and trade value, key is trade ID
     seenAlerts: {},
     sentTrades: 0,
 
@@ -363,6 +367,7 @@ var pucaPower = {
         this.debug(2, 'Parsing trade table data');
 
         this.tableData = [];
+        this.cardData = {};
         this.memberData = {};
 
         // Parse all rows, hidden or not (scrolling may have added more entries)
@@ -371,7 +376,7 @@ var pucaPower = {
         var i;
         var tradeID;
         var curRow, curFields;
-        var cardName, cardPts;
+        var cardSet, cardName, cardPts;
         var memberID, memberName, memberPts;
         var country;
 
@@ -382,6 +387,7 @@ var pucaPower = {
 
             // Extract the relevant table fields
             tradeID  = $(curRow).attr('id');
+            cardSet  = $(curFields).eq(0).find('img.iconExpansion').attr('title').trim();
             cardName = $(curFields).eq(1).text().trim();
             cardPts  = parseInt( $(curFields).eq(2).text(), 10 );
 
@@ -391,7 +397,7 @@ var pucaPower = {
             memberID   = $(curFields).eq(4).find('a').last().attr('href').split('/').pop();
             memberName = $(curFields).eq(4).text().trim();
             memberPts  = parseInt( $(curFields).eq(5).text(), 10 );
-            
+
             // Pulling from curRow, not curFields because the country column position
             //   depends on membership level as rare-level users have an extra column
             country = $(curRow).find('i.flag').attr('title').trim();
@@ -407,6 +413,13 @@ var pucaPower = {
                 cardName:   cardName,
                 cardPts:    cardPts
             });
+
+            // Data per card
+            this.cardData[tradeID] = {
+                cardSet:  cardSet,
+                cardName: cardName,
+                cardPts:  cardPts
+            };
 
             // Data per member
             if ( !this.memberData[memberID] ) {
@@ -663,6 +676,7 @@ var pucaPower = {
         if ( pendingAlerts.length > 0 ) {
             this.playAlertSound();
             this.setTitleAlert(this.alert.titleText);
+            window._gaq.push(['pucaPowerGA._trackEvent', 'PucaPower', 'Alert']);
         }
 
         // Sort the alerts by weight
@@ -832,6 +846,7 @@ var pucaPower = {
 
         this.events.tableLoadComplete = false;
         window.loadTableData();
+        window._gaq.push(['pucaPowerGA._trackEvent', 'PucaPower', 'Reload']);
     },
 
     // The trade table finished updating and we can now load the data
@@ -910,8 +925,9 @@ var pucaPower = {
         // Hook all AJAX requests
         // This lets us detect certain activities and react to them
         $(document).ajaxSend(function (e, xhr, settings) {
+            var cardPts = 0;
 
-            // Remove url parameters, then remove trailing frontslashes
+            // Remove url parameters (after "?"), then remove trailing frontslashes
             var url = settings.url.split('?')[0].replace(/\/+$/, '');
             this.debug(4, '.ajaxSend - ' + url);
 
@@ -941,6 +957,10 @@ var pucaPower = {
                     this.debug(3, 'Resetting outgoing trade reload timer, user confirmed a trade');
                     this.lastOutgoingLoad = 0;
                     this.sentTrades++;
+
+                    // Get the card points for analytic purposes
+                    cardPts = this.cardData['uc_' + url.split('/').pop()].cardPts || 0;
+                    window._gaq.push(['pucaPowerGA._trackEvent', 'PucaPower', 'Send', 'Card Points', cardPts]);
                 }
 
             } else {
@@ -968,7 +988,7 @@ var pucaPower = {
         // Hook all AJAX completions
         $(document).ajaxComplete(function (e, xhr, settings) {
 
-            // Remove url parameters, then remove trailing frontslashes
+            // Remove url parameters (after "?"), then remove trailing frontslashes
             var url = settings.url.split('?')[0].replace(/\/+$/, '');
             this.debug(4, '.ajaxComplete - ' + url);
 
@@ -1097,6 +1117,18 @@ var pucaPower = {
             this.donationRequest();
             this.news();
         }.bind(this));
+
+
+        // Setup google analytics
+        window._gaq = window._gaq || [];
+        window._gaq.push(['pucaPowerGA._setAccount', 'UA-62931323-2']);
+        window._gaq.push(['pucaPowerGA._trackPageview', '/trades']);
+
+        (function() {
+            var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+            ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+            var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+        })();
 
 
         return this;
