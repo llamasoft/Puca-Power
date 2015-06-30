@@ -1082,7 +1082,7 @@ var pucaPower = {
             return this;
         }
 
-        if ( href.indexOf('pucatrade.com/trades') === -1 && href.indexOf('pucatrade.com/trades/') !== -1 ) {
+        if ( href.indexOf('pucatrade.com/trades') === -1 || href.indexOf('pucatrade.com/trades/') !== -1 ) {
             alert('Hey!  This isn\'t the Trades section!');
             return this;
         }
