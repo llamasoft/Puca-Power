@@ -10,6 +10,8 @@
 // @grant           none
 // @include         https://pucatrade.com/trades
 // @include         https://pucatrade.com/trades/
+// @require         https://pucatrade.com/js/libs/jquery.1.10.2.min.js
+// @require         https://pucatrade.com/js/infinite.tables.js
 // ==/UserScript==
 
 var pucaPower = {
@@ -91,6 +93,7 @@ var pucaPower = {
     //   memberPts - The number of points the user has available
     //   country - The country associated with the member
     //   cardQty - The number of cards the user wants from you
+    //   tradeIDs - The trade IDs and values associated with the cards they want
     //   totalCardPts - The sum value of all the cards the user wants from you
     //   hasAlert - A flag that's true if the user has some kind of alert (see below)
     //   hasBundleAlert - Flag the notes if the member qualifies as a trade bundle
@@ -428,18 +431,20 @@ var pucaPower = {
                     memberName: memberName,
                     memberPts: memberPts,
                     country: country,
-                    cardQty: 1,
-                    totalCardPts: cardPts,
+                    cardQty: 0,
+                    tradeIDs: {},
+                    totalCardPts: 0,
                     hasAlert: false,
                     hasBundleAlert: false,
                     hasOutgoingAlert: false
                 };
 
-            } else {
-                // Update an existing entry
-                this.memberData[memberID].cardQty++;
-                this.memberData[memberID].totalCardPts += cardPts;
             }
+            
+            // Now that we're certain the entry exists, update the data
+            this.memberData[memberID].cardQty++;
+            this.memberData[memberID].totalCardPts += cardPts;
+            this.memberData[memberID].tradeIDs[tradeID] = cardPts;
         }
     },
 
