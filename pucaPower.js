@@ -475,6 +475,9 @@ var pucaPower = {
 
             var memberID, memberName;
             var cardPts;
+            
+            // Gold membership adds columns to the Active Trades page, so we need to get our column index for the receiver manually
+            var memberColumnIndex = $(data).find('table.datatable thead tr th:contains("Receiver")')[0].cellIndex;;
 
             this.outgoingTrades = {};
 
@@ -487,16 +490,16 @@ var pucaPower = {
 
                 // Some member entries can become bugged and somehow lack a profile link
                 // We don't care why they're bugged, but trying to parse them would be dumb
-                if ( $(curFields).eq(6).find('a.trader').length < 1 ) {
+                if ( $(curFields).eq(memberColumnIndex).find('a.trader').length < 1 ) {
                     this.debug(0, 'Warning: bugged outgoing trade detected, html = '
                                   + $(curFields).eq(6).html().replace(/\s+/g, ' '));
                     continue;
                 }
 
-                memberID = $(curFields).eq(6).find('a.trader').attr('href').split('/').pop();
+                memberID = $(curFields).eq(memberColumnIndex).find('a.trader').attr('href').split('/').pop();
 
                 // Thank you StackOverflow! http://stackoverflow.com/a/8851526/477563
-                memberName = $(curFields).eq(6).find('a.trader')
+                memberName = $(curFields).eq(memberColumnIndex).find('a.trader')
                              .children().remove().end().text().trim();
 
                 if ( !this.outgoingTrades[memberID] ) {
