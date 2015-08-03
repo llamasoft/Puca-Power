@@ -477,7 +477,7 @@ var pucaPower = {
             var cardPts;
             
             // Gold membership adds columns to the Active Trades page, so we need to get our column index for the receiver manually
-            var memberColumnIndex = $(data).find('table.datatable thead tr th:contains("Receiver")')[0].cellIndex;;
+            var memberColumnIndex = $(data).find('table.datatable thead tr th:contains("Receiver")')[0].cellIndex;
 
             this.outgoingTrades = {};
 
