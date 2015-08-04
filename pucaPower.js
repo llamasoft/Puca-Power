@@ -440,7 +440,7 @@ var pucaPower = {
                 };
 
             }
-            
+
             // Now that we're certain the entry exists, update the data
             this.memberData[memberID].cardQty++;
             this.memberData[memberID].totalCardPts += cardPts;
@@ -475,11 +475,11 @@ var pucaPower = {
 
             var memberID, memberName;
             var cardPts;
-            
-            // Gold membership adds columns to the Active Trades page, so we need to get our column index for the receiver manually
-            var memberColumnIndex = $(data).find('table.datatable thead tr th:contains("Receiver")')[0].cellIndex;
 
             this.outgoingTrades = {};
+
+            // Gold membership adds columns to the Active Trades page, so we need to get our column index for the receiver manually
+            var memberColumnIndex = $(data).find('table.datatable thead tr th:contains("Receiver")').first().cellIndex;
 
             // For each row of unshipped trades
             for (i = 0; i < tableRows.length; i++) {
