@@ -491,8 +491,7 @@ var pucaPower = {
                 // Some member entries can become bugged and somehow lack a profile link
                 // We don't care why they're bugged, but trying to parse them would be dumb
                 if ( $(curFields).eq(memberColumnIndex).find('a.trader').length < 1 ) {
-                    this.debug(0, 'Warning: bugged outgoing trade detected, html = '
-                                  + $(curFields).eq(memberColumnIndex).html().replace(/\s+/g, ' '));
+                    this.debug(0, 'Warning: bugged outgoing trade detected, html = ' + $(curFields).html().replace(/\s+/g, ' '));
                     this.debug(0, 'Table headings html = ' + $(data).find('table.datatable thead').html().replace(/\s+/g, ' '));
                     this.debug(0, 'Using memberColumnIndex of ' + memberColumnIndex);
                     continue;
