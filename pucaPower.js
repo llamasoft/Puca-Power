@@ -478,8 +478,14 @@ var pucaPower = {
 
             this.outgoingTrades = {};
 
+            
             // Gold membership adds columns to the Active Trades page, so we need to get our column index for the receiver manually
-            var memberColumnIndex = $(data).find('table.datatable thead tr th:contains("Receiver")').first().cellIndex;
+            // We do this in two steps because the entire table doesn't exist if the user has no outgoing trades
+            // If the table doesn't exist, the 0th index is undefined; undefined.cellIndex is an error
+            var memberColumnIndex = $(data).find('table.datatable thead tr th:contains("Receiver")')[0];
+            if ( memberColumnIndex !== undefined ) {
+                memberColumnIndex = memberColumnIndex.cellIndex;
+            }
 
             // For each row of unshipped trades
             for (i = 0; i < tableRows.length; i++) {
