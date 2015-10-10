@@ -586,6 +586,10 @@ var pucaPower = {
             if ('Notification' in window && Notification.permission ) {
               var n = new Notification(msg, { icon: 'https://pucatrade.com/favicon.ico' });
               window.setTimeout(function() { n.close() }, timeout);
+              n.addEventListener('click', function() {
+                window.focus();
+                n.close();
+              });
             }
             this.hasShownNotification = true;
         }
