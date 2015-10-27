@@ -3,7 +3,7 @@
 
 // ==UserScript==
 // @name            Puca Power
-// @version         1.2.4
+// @version         1.3.0
 // @namespace       https://github.com/llamasoft/Puca-Power
 // @description     A JavaScript utility for better trading on PucaTrade.com
 // @downloadURL     https://llamasoft.github.io/Puca-Power/pucaPower.js
@@ -12,6 +12,7 @@
 // @include         https://pucatrade.com/trades/
 // @require         https://pucatrade.com/js/libs/jquery.1.10.2.min.js
 // @require         https://pucatrade.com/js/infinite.tables.js
+// @run-at          document-idle
 // ==/UserScript==
 
 var pucaPower = {
@@ -55,7 +56,7 @@ var pucaPower = {
             titleText: '\u2605 Trade alert! \u2605',
 
             showNotification: true,
-            notificationTimeout: 10000,
+            notificationTimeout: 7.5 * 1000
         },
 
         filter: {
@@ -65,7 +66,7 @@ var pucaPower = {
             membersMinPoints: 400
         }
     },
-    settingsVersion: '1.2.1',
+    settingsVersion: '1.3.0',
 
     // Settings structures
     reloadInterval: null,
@@ -199,9 +200,11 @@ var pucaPower = {
         }
 
         if ( settings.settingsVersion !== this.settingsVersion ) {
-            this.debug(1, 'Settings version mismatch, purging settings');
-            this.clearLocalSettings();
-            return;
+            this.debug(1, 'Settings version mismatch, attempting to extend settings with defaults');
+
+            // Using the default settings as a starting point, overlay the settings we could load
+            // This is endended from a new object to prevent clobbering of the defaults object
+            $.extend(true, {}, this.defaults, settings);
         }
 
         this.reloadInterval   = settings.reloadInterval;
@@ -257,7 +260,7 @@ var pucaPower = {
             titleText: this.defaults.alert.titleText,
 
             showNotification: $('input#alertShowNotification').prop('checked'),
-            notificationTimeout: this.defaults.alert.notificationTimeout,
+            notificationTimeout: this.defaults.alert.notificationTimeout
         };
 
         this.filter = {
@@ -485,7 +488,7 @@ var pucaPower = {
 
             this.outgoingTrades = {};
 
-            
+
             // Gold membership adds columns to the Active Trades page, so we need to get our column index for the receiver manually
             // We do this in two steps because the entire table doesn't exist if the user has no outgoing trades
             // If the table doesn't exist, the 0th index is undefined; undefined.cellIndex is an error
@@ -584,12 +587,12 @@ var pucaPower = {
     showNotification: function(msg, timeout) {
         if ( this.alert.showNotification  && !this.hasShownNotification ) {
             if ('Notification' in window && Notification.permission ) {
-              var n = new Notification(msg, { icon: 'https://pucatrade.com/favicon.ico' });
-              window.setTimeout(function() { n.close() }, timeout);
-              n.addEventListener('click', function() {
-                window.focus();
-                n.close();
-              });
+                var n = new Notification(msg, { icon: 'https://pucatrade.com/favicon.ico' });
+                window.setTimeout(function() { n.close() }, timeout);
+                n.addEventListener('click', function() {
+                    window.focus();
+                    n.close();
+                });
             }
             this.hasShownNotification = true;
         }
@@ -1114,12 +1117,24 @@ var pucaPower = {
 
     // Responsible for initial loading and setup
     setup: function () {
-        if ( window.location.href.toLowerCase().indexOf('pucatrade.com') === -1 ) {
+
+        // Returns true if search is in the current URL, case insensitive
+        // This will only be used within the setup routine
+        var inUrl = function ( search ) {
+            return (window.location.href.toLowerCase().indexOf(search) !== -1);
+        }
+
+        // If we're not on PucaTrade, we shouldn't run
+        if ( !inUrl('pucatrade.com') ) {
             alert('Hey!  This doesn\'t look like PucaTrade!');
             return this;
         }
 
-        if ( window.location.href.toLowerCase().indexOf('pucatrade.com/trades') === -1 ) {
+        // The trades section is specifically "pucatrade.com/trades" but nothing under it
+        // For example: "pucatrade.com/trades" is good, "pucatrade.com/trades/active" is bad
+        // Attempting to access "pucatrade.com/trades/" redirects to "pucatrade.com/trades"
+        //   so any front slashes after "trades" is a failure
+        if ( !inUrl('pucatrade.com/trades') || inUrl('pucatrade.com/trades/') ) {
             alert('Hey!  This isn\'t the Trades section!');
             return this;
         }
