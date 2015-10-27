@@ -1112,14 +1112,19 @@ var pucaPower = {
 
     },
 
+    hrefContains: function(partialURI) {
+        var href =  window.location.href.toLowerCase();
+        return href.indexOf(partialURI) !== -1
+    },
+
     // Responsible for initial loading and setup
     setup: function () {
-        if ( window.location.href.toLowerCase().indexOf('pucatrade.com') === -1 ) {
+        if ( !this.hrefContains('pucatrade.com') ) {
             alert('Hey!  This doesn\'t look like PucaTrade!');
             return this;
         }
 
-        if ( window.location.href.toLowerCase().indexOf('pucatrade.com/trades') === -1 ) {
+        if ( !this.hrefContains('pucatrade.com/trades') || this.hrefContains('pucatrade.com/trades/') ) {
             alert('Hey!  This isn\'t the Trades section!');
             return this;
         }
