@@ -1,8 +1,13 @@
-##### Version 1.3.0 (2015-10-10)
+##### Version 1.3.0 (2015-10-27)
 
 - Added notification option.  The notification is not currently customizable.
 - Milestone: pucaPower.js contributed to by multiple developers
-    
+- Settings structure version updated to reflect new desktop notification option
+- When a settings version change is detected, the script will attempt to merge new values instead of reverting to defaults
+- Better URL checking to verify that the script is only run on the trades page
+- Updated UserScript headers to delay first run until (hopefully) after infinite table features load
+- Updated UserScript version header to (hopefully) trigger an update
+
 ----------
 
 
@@ -18,7 +23,7 @@
     - Standardized usage of "reload" vs "refresh"
 - Updated README to include visual examples of usage methods for Chrome and Firefox
 - Milestone: pucaPower.js crossed 1024 lines of code
-    
+
 ----------
 
 
@@ -74,8 +79,8 @@ Same as issues from v1.1
 
 ###### Known issues:
 
-[Semi-issue] Bundles can trigger alerts even if no possible combination of cards less than a member's current points meets the bundle threshold.  
-For example, Alice has 900 points and wants two 500 point cards.  Alice will still trigger a bundle alert for a threshold of 750.  
+[Semi-issue] Bundles can trigger alerts even if no possible combination of cards less than a member's current points meets the bundle threshold.
+For example, Alice has 900 points and wants two 500 point cards.  Alice will still trigger a bundle alert for a threshold of 750.
 
 ----------
 
@@ -103,4 +108,4 @@ For example, Alice has 900 points and wants two 500 point cards.  Alice will sti
 ###### Known issues:
 
 1. When starting the page refresher, sometimes it doesn't correctly toggle the auto-matching option and will parse the unfiltered data instead.
-2. Sending a card to a member may cause that member to no longer qualify for an alert.  
+2. Sending a card to a member may cause that member to no longer qualify for an alert.
