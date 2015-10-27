@@ -18,7 +18,7 @@ var pucaPower = {
 
     /* ===== INTERNAL VARIABLES ===== */
 
-    version: 'v1.2.4',
+    version: 'v1.3.0',
     formUrl: 'https://llamasoft.github.io/Puca-Power/controls.html',
 
 
@@ -52,7 +52,10 @@ var pucaPower = {
             soundFile: 'https://llamasoft.github.io/Puca-Power/alert.mp3',
 
             changeTitle: true,
-            titleText: '\u2605 Trade alert! \u2605'
+            titleText: '\u2605 Trade alert! \u2605',
+
+            showNotification: true,
+            notificationTimeout: 10000,
         },
 
         filter: {
@@ -251,7 +254,10 @@ var pucaPower = {
             soundFile: $('input#alertSoundFile').val().trim(),
 
             changeTitle: $('input#alertChangeTitle').prop('checked'),
-            titleText: this.defaults.alert.titleText
+            titleText: this.defaults.alert.titleText,
+
+            showNotification: $('input#alertShowNotification').prop('checked'),
+            notificationTimeout: this.defaults.alert.notificationTimeout,
         };
 
         this.filter = {
@@ -300,6 +306,7 @@ var pucaPower = {
         $('audio#alertSound').attr('src', this.alert.soundFile);
         $('input#alertSoundFile').val(this.alert.soundFile);
         $('input#alertChangeTitle').prop('checked', this.alert.changeTitle);
+        $('input#alertShowNotification').prop('checked', this.alert.showNotification);
 
         // Filter settings
         $('input#filterCardsByValue').prop('checked', this.filter.cardsByValue);
@@ -573,6 +580,21 @@ var pucaPower = {
         }
     },
 
+    hasShownNotification: true,
+    showNotification: function(msg, timeout) {
+        if ( this.alert.showNotification  && !this.hasShownNotification ) {
+            if ('Notification' in window && Notification.permission ) {
+              var n = new Notification(msg, { icon: 'https://pucatrade.com/favicon.ico' });
+              window.setTimeout(function() { n.close() }, timeout);
+              n.addEventListener('click', function() {
+                window.focus();
+                n.close();
+              });
+            }
+            this.hasShownNotification = true;
+        }
+    },
+
     checkForAlerts: function () {
         this.debug(2, 'Checking for alerts');
 
@@ -691,6 +713,7 @@ var pucaPower = {
         if ( pendingAlerts.length > 0 ) {
             this.playAlertSound();
             this.setTitleAlert(this.alert.titleText);
+            this.showNotification(this.alert.titleText, this.alert.notificationTimeout);
             window._gaq.push(['pucaPowerGA._trackEvent', 'PucaPower', 'Alert']);
         }
 
@@ -842,6 +865,7 @@ var pucaPower = {
         this.running = true;
         this.reloadTimeout = null;
         this.hasPlayedSound = false;
+        this.hasShownNotification = false;
 
         $('button#start').removeClass('btn-success');
         $('button#start').prop('disabled', true);
@@ -1109,6 +1133,9 @@ var pucaPower = {
         // Load the user's settings (if possible)
         this.loadDefaultSettings();
         this.loadSettingsFromLocal();
+
+        // Ask the user for Notification permissions
+        if ("Notification" in window) { Notification.requestPermission(); }
 
         // Disable AJAX caching
         $.ajaxSetup({ cache: false });
