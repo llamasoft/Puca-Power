@@ -1,3 +1,11 @@
+##### Version 1.3.0 (2015-10-10)
+
+- Added notification option.  The notification is not currently customizable.
+- Milestone: pucaPower.js contributed to by multiple developers
+    
+----------
+
+
 ##### Version 1.2.4 (2015-05-07)
 
 - Table reload gets postponed if something triggers the reload early (e.g. card confirmation)
