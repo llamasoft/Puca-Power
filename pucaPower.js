@@ -397,7 +397,7 @@ var pucaPower = {
 
             // Extract the relevant table fields
             tradeID  = $(curRow).attr('id');
-            cardSet  = $(curFields).eq(0).find('img.iconExpansion').attr('title').trim();
+            cardSet  = $(curFields).eq(0).find('div.hidden').text().trim();
             cardName = $(curFields).eq(1).text().trim();
             cardPts  = parseInt( $(curFields).eq(2).text(), 10 );
 
