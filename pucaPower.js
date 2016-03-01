@@ -1151,7 +1151,7 @@ var pucaPower = {
                 // Start loading the next page and only filter/alert once all pages have been loaded
                 if ( curTableLen - prevTableLen >= 200 ) {
                     this.addNote('Loading more trades...', 'text-success');
-                    setTimeout(function () { $(this.tableStr).infinitescroll('retrieve'); }, 250);
+                    setTimeout(function () { $(this.tableStr).infinitescroll('retrieve'); }.bind(this), 250);
 
                 } else {
                     // We've hit the end of the table loading, now we can start filtering/alerting
