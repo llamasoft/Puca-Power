@@ -1,17 +1,13 @@
-/*jslint browser: true, devel: true, plusplus: true, sloppy: true, unparam: true, vars: true, white: true */
-/* global loadTableData, $, _gaq */
-
 // ==UserScript==
 // @name            Puca Power
-// @version         1.3.0
+// @version         1.4.0
 // @namespace       https://github.com/llamasoft/Puca-Power
+// @supportURL      https://github.com/llamasoft/Puca-Power
 // @description     A JavaScript utility for better trading on PucaTrade.com
 // @downloadURL     https://llamasoft.github.io/Puca-Power/pucaPower.js
-// @grant           none
+// @grant           unsafeWindow
 // @include         https://pucatrade.com/trades
 // @include         https://pucatrade.com/trades/
-// @require         https://pucatrade.com/js/libs/jquery.1.10.2.min.js
-// @require         https://pucatrade.com/js/infinite.tables.js
 // @run-at          document-idle
 // ==/UserScript==
 
@@ -19,9 +15,10 @@ var pucaPower = {
 
     /* ===== INTERNAL VARIABLES ===== */
 
-    version: 'v1.3.0',
-    formUrl: 'https://llamasoft.github.io/Puca-Power/controls.html',
+    version: 'v1.4.0',
+    updateDate: new Date(2016, 03, 01),
 
+    formUrl: 'https://llamasoft.github.io/Puca-Power/controls.html',
 
     // Default values for internal settings
     // If you change this structure, you need to update the following:
@@ -465,12 +462,12 @@ var pucaPower = {
     loadOutgoingTrades: function (force) {
         this.debug(2, 'Fetching outgoing trades');
 
-        // Only run if forced or at least 120 seconds since the last run
-        if ( force || this.time() - this.lastOutgoingLoad < 120 * 1000 ) { return; }
+        // Skip if not forced and it's been less than 2 minutes since last run
+        if ( !force && Date.now() - this.lastOutgoingLoad < 2 * 60 * 1000 ) { return; }
 
 
         this.events.outgoingLoadComplete = false;
-        this.lastOutgoingLoad = this.time();
+        this.lastOutgoingLoad = Date.now();
 
 
         // Initiate an AJAX request to get the outgoing trades
@@ -587,17 +584,18 @@ var pucaPower = {
     showNotification: function(msg, timeout) {
         if ( this.alert.showNotification  && !this.hasShownNotification ) {
             if ('Notification' in window && Notification.permission ) {
-                var n = new Notification(msg, { icon: 'https://pucatrade.com/favicon.ico' });
-                window.setTimeout(function() { n.close() }, timeout);
-                n.addEventListener('click', function() {
+                var note = new Notification(msg, { icon: 'https://pucatrade.com/favicon.ico' });
+                setTimeout(function() { note.close() }, timeout);
+                note.addEventListener('click', function() {
                     window.focus();
-                    n.close();
+                    note.close();
                 });
             }
             this.hasShownNotification = true;
         }
     },
 
+    // Checks all pending trades for alerts based on user settings
     checkForAlerts: function () {
         this.debug(2, 'Checking for alerts');
 
@@ -606,7 +604,8 @@ var pucaPower = {
         var curAlert = {}; // { msg, style, weight }
 
         var memberID, memberName, memberPts;
-        var cardQty, totalCardPts;
+        var tradeIDs, cardQty, totalCardPts;
+        var firstTradeID;
         var country;
         var tradeValue;
 
@@ -620,13 +619,27 @@ var pucaPower = {
             memberID     = i;
             memberName   = this.memberData[i].memberName;
             memberPts    = this.memberData[i].memberPts;
+            tradeIDs     = this.memberData[i].tradeIDs;
+            firstTradeID = Object.keys(tradeIDs).shift();
             cardQty      = this.memberData[i].cardQty;
             totalCardPts = this.memberData[i].totalCardPts;
             country      = this.memberData[i].country;
 
+            // If the total card value is under the alert threshold
+            //   or the member can afford all cards they want, trust the total value
+            // Calling getBestBundle is expensive, so it should only be used sparingly
+            if ( totalCardPts < this.alert.bundleThreshold || totalCardPts < memberPts ) {
+                tradeValue = totalCardPts;
 
-            // The bundle is only worth what the member can actually pay for
-            tradeValue = Math.min(totalCardPts, memberPts);
+            } else {
+                // It's possible that the member cannot afford all the cards they want
+                // Find the largest bundle of trades the member can actually afford
+                tradeValue = this.getBestBundle(tradeIDs, memberPts).value;
+
+                if ( tradeValue < this.alert.bundleThreshold ) {
+                    this.debug(2, memberName + '(' + memberID + ') cannot afford ' + this.alert.bundleThreshold);
+                }
+            }
             curAlert = {};
 
 
@@ -638,8 +651,12 @@ var pucaPower = {
                 // Queue the alert
                 // If the trade value is limited by the user's points, mark the entry
                 curAlert = {
-                    msg: '<strong>' + memberName + ' (' + memberPts + ' points)</strong> wants '
-                        + cardQty + ' cards for <strong>' + totalCardPts + ' points</strong>',
+                    msg:
+                        '<span onclick="pucaPower.snapTo(\'#' + firstTradeID + '\');">'
+                      + '<strong>' + memberName + '</strong> '
+                      + 'wants ' + cardQty + ' cards for '
+                      + '<strong>' + totalCardPts + ' points</strong>'
+                      + '</span>',
                     style: (totalCardPts > memberPts ? 'text-warning' : ''),
                     weight: tradeValue
                 };
@@ -656,9 +673,12 @@ var pucaPower = {
                 tradeValue += this.outgoingTrades[memberID].totalCardPts;
 
                 curAlert = {
-                    msg: '<strong>' + memberName + ' (' + memberPts + ' points)</strong> '
-                        + 'has outgoing trades and wants ' + cardQty + ' more cards for '
-                        + '<strong>' + totalCardPts + ' points</strong>',
+                    msg:
+                        '<span onclick="pucaPower.snapTo(\'#' + firstTradeID + '\');">'
+                      + '<strong>' + memberName + '</strong> '
+                      + 'has outgoing trades and wants ' + cardQty + ' more cards for '
+                      + '<strong>' + totalCardPts + ' points</strong>'
+                      + '</span>',
                     style: (totalCardPts > memberPts ? 'text-warning' : ''),
                     weight: tradeValue
                 };
@@ -667,14 +687,16 @@ var pucaPower = {
 
             if ( curAlert.msg !== undefined ) {
                 pendingAlerts.push(curAlert);
-                this.debug(0, 'Alert! ' + curAlert.msg);
+                this.debug(0, 'Alert! ' + $(curAlert.msg).text());
             }
         }
 
 
         // Iterate the table elements and colorize alerts
         for (i = 0; i < this.tableData.length; i++) {
-            memberID = this.tableData[i].memberID;
+            memberID     = this.tableData[i].memberID;
+            memberPts    = this.memberData[memberID].memberPts;
+            totalCardPts = this.memberData[memberID].totalCardPts;
             rowColor = null;
 
             if ( this.memberData[memberID].hasAlert ) {
@@ -701,8 +723,8 @@ var pucaPower = {
                 }
 
 
-                // Put a mark next to the member's points if they can't afford all their wants
-                if ( this.memberData[memberID].memberPts < this.memberData[memberID].totalCardPts ) {
+                // Put a mark next to the member's points if they can't afford all the cards they want
+                if ( memberPts < totalCardPts ) {
                     if ( !$(this.tableData[i].dom).data('hasPointWarning') ) {
                         $(this.tableData[i].dom).data('hasPointWarning', true);
                         $(this.tableData[i].dom).find('td.points').prepend('<i class="icon-warning-sign"></i>&nbsp;&nbsp;');
@@ -720,7 +742,7 @@ var pucaPower = {
             window._gaq.push(['pucaPowerGA._trackEvent', 'PucaPower', 'Alert']);
         }
 
-        // Sort the alerts by weight
+        // Sort the alerts by weight (descending)
         pendingAlerts.sort(function (a, b) { return (b.weight - a.weight); });
 
         // Display the alerts, highest weight first
@@ -752,26 +774,74 @@ var pucaPower = {
             this.addNote('Puca Power has alerted you to <strong>' + alertPoints + ' points</strong> in trades this session.');
         }
 
-        this.addNote('<strong>Do you like Puca Power?</strong> <i class="icon-heart"></i> '
-                   + 'Consider donating via ' + paypal + ', ' + bitcoin + ', or ' + pucatrade + '!',
-                     'donationRequest');
+        this.addNote(
+            '<strong>Do you like Puca Power?</strong> <i class="icon-heart"></i> '
+          + 'Consider donating via ' + paypal + ', ' + bitcoin + ', or ' + pucatrade + '!',
+            'donationRequest'
+        );
     },
 
     news: function () {
-        // Placeholder
-        // In case I need to have a news alert at a later date
+        // Only display news for up to two weeks
+        if ( Date.now() - this.updateDate <= 14 * 24 * 60 * 60 * 1000 ) {
+            this.addNote('Update released! See the change log for full details.', 'text-success');
+        }
     },
 
-    knapsack: function (items, knapsackSize) {
-        // TODO: return the highest value combination of items
-        //   that's less than or equal to knapsackSize
+    // Returns the maximal combination of trades (a bundle) that doesn't exceed memberPts
+    // If targetValue is specified, return the first bundle that meets or exceeds it
+    getBestBundle: function (trades, memberPts, targetValue) {
+        // { combinedValue: { itemID: value, ... }, ... }
+        // Indexing by the combined trade value helps greatly reduce the search space
+        // Because we only care about the maximum bundle value, we don't care about
+        //   two different bundles of trades that yield the same total value
+        // i.e. {A: 10, B: 20} is just as good as {C: 15, D: 15}, so only track one
+        // The only preference we make is that fewer trades is better
+        var bundles = { 0: {} };
+        var bestBundleValue = 0;
 
-        // This will eventually replace the "tradeValue = Math.min(totalCardPts, memberPts);"
-        //   logic from checkForAlerts()
+        // For each trade the member wants...
+        for ( var curTradeID in trades ) {
+            var curTradeValue = parseInt(trades[curTradeID], 10);
+
+            // Attempt to add it to all possible trade bundles
+            for ( var bundleValue in bundles ) {
+                // Skip any bundles that already contain this card
+                // This should never happen as we only iterate trades once but better safe than infinite
+                if ( curTradeID in bundles[bundleValue] ) { continue; }
+
+                // If the new bundle value exceeds the member's points, skip it
+                var newValue = parseInt(bundleValue, 10) + curTradeValue;
+                if ( newValue > memberPts ) { continue; }
+
+                // Copy and extend the bundle with our current trade included
+                var newBundle = $.extend({}, bundles[bundleValue]);
+                newBundle[curTradeID] = curTradeValue;
+
+                // Check if a bundle of this value already exists
+                if ( newValue in bundles ) {
+                    // A bundle of this value exists
+                    var newTradeCount = Object.keys( newBundle ).length;
+                    var oldTradeCount = Object.keys( bundles[newValue] ).length;
+
+                    // Only replace it if this bundle has fewer trades
+                    if ( newTradeCount < oldTradeCount ) {
+                        bundles[newValue] = newBundle;
+                        bestBundleValue = newValue;
+                    }
+
+                } else {
+                    // This is a new bundle value
+                    bundles[newValue] = newBundle;
+                    bestBundleValue = newValue;
+                }
+            }
+
+            if ( typeof targetValue !== 'undefined' && bestBundleValue >= targetValue ) { break; }
+        }
+
+        return {value: bestBundleValue, tradeIDs: bundles[bestBundleValue]};
     },
-
-    // Returns the current time in milliseconds since epoch
-    time: function () { return (new Date()).getTime(); },
 
     // Enables the auto-match feature of the trade table
     // This is required if we want any of the alerts to be valid
@@ -783,6 +853,31 @@ var pucaPower = {
 
             // lastVars may or may not be defined yet
             window.lastVars = $.extend({ intersect: true }, window.lastVars);
+        }
+    },
+
+    // Snaps an element/selector into view
+    // If no element/selector is specified, snap to top of current page
+    snapTo: function (selector) {
+        if ( typeof selector === 'undefined' ) {
+            // No selector? Default to top of page
+            selector = 'html';
+
+        } else {
+            // Push browser history for current selector
+            // This allows us to snap to top when we pop this state
+            history.pushState({snapTo: selector}, '');
+        }
+
+
+        try {
+            // Snap the thing into view, catching an exception if thing doesn't exist
+            $('html, body').animate({
+                scrollTop: $(selector).first().offset().top
+            }, 0);
+
+        } catch (e) {
+            this.debug(0, 'Failed to snap ' + selector + ' into view: ' + e);
         }
     },
 
@@ -879,12 +974,8 @@ var pucaPower = {
         // Auto-match must be on, otherwise things get weird with alerts and filtering.
         this.enableAutoMatch();
 
-
-        // Optionally enable the infinite scroll feature while the reloader is active
-        if ( !this.disableInfScroll ) {
-            $(this.tableStr).infinitescroll('resume');
-        }
-
+        // Reset the previously loaded tableData so we can keep track of how many entries we loaded
+        this.tableData = [];
 
         this.events.tableLoadComplete = false;
         window.loadTableData();
@@ -900,7 +991,6 @@ var pucaPower = {
 
         // If we're not running, don't do anything
         if ( !this.running ) { return; }
-
 
         this.clearAllNotes();
         this.checkForAlerts();
@@ -949,9 +1039,6 @@ var pucaPower = {
 
         $('button#stop').removeClass('btn-danger');
         $('button#stop').prop('disabled', true);
-
-        // Disable the infinite scrolling unless the reloader is active
-        $(this.tableStr).infinitescroll('pause');
 
         // If we have a pending reload, cancel it
         this.cancelReload();
@@ -1018,7 +1105,7 @@ var pucaPower = {
                 } else {
                     // Vanilla reload
                     // Load the outgoing trades if required
-                    if ( this.time() - this.lastOutgoingLoad > 120 * 1000 ) {
+                    if ( Date.now() - this.lastOutgoingLoad > 120 * 1000 ) {
                         this.loadOutgoingTrades();
                     }
                 }
@@ -1055,16 +1142,29 @@ var pucaPower = {
                 //   /trades or /trades/ -> vanilla reload, getting the first page of trades
                 //   /trades/[NUM]       -> fetching a specific page of trades
 
-                // On ANY table fetch we need to re-apply filters and check for alerts
+                var prevTableLen = this.tableData.length;
                 this.parseTradeTable();
-                this.events.tableLoadComplete = true;
-                this.reloadComplete();
+                var curTableLen = this.tableData.length;
+
+                // PucaTrade loads a seemingly random number of trades with each trade page
+                // Usually, if the number of loaded trades is over 200, there's another page waiting
+                // Start loading the next page and only filter/alert once all pages have been loaded
+                if ( curTableLen - prevTableLen >= 200 ) {
+                    this.addNote('Loading more trades...', 'text-success');
+                    setTimeout(function () { $(this.tableStr).infinitescroll('retrieve'); }, 250);
+
+                } else {
+                    // We've hit the end of the table loading, now we can start filtering/alerting
+                    this.events.tableLoadComplete = true;
+                    this.reloadComplete();
+                }
             }
         }.bind(this));
 
 
         // Button and input listeners to keep the settings form pretty
         $('button#start').click(function () {
+            this.clearAllNotes();
             this.addNote('Reload started', 'text-success');
             this.go();
         }.bind(this));
@@ -1072,22 +1172,6 @@ var pucaPower = {
             this.donationRequest();
             this.addNote('Reload stopped', 'text-warning');
             this.stop();
-        }.bind(this));
-
-
-        // The infinite scroll option should apply immediately (if we're running)
-        // The infinite scroll should always be disabled when the reloader is paused
-        $('input#disableInfScroll').click(function () {
-            var isChecked = $('input#disableInfScroll').prop('checked');
-
-            if ( this.running ) {
-                if ( isChecked ) {
-                    $(this.tableStr).infinitescroll('pause');
-
-                } else {
-                    $(this.tableStr).infinitescroll('resume');
-                }
-            }
         }.bind(this));
 
 
@@ -1112,7 +1196,8 @@ var pucaPower = {
         $('input#filterCardsByValue').click(this.updatePageState.bind(this));
         $('input#filterMembersByPoints').click(this.updatePageState.bind(this));
 
-
+        // When the window state is popped, scroll to top
+        window.onpopstate = function ( event ) { this.snapTo(); }.bind(this);
     },
 
     // Responsible for initial loading and setup
@@ -1140,9 +1225,23 @@ var pucaPower = {
         }
 
 
+        // If we're running as a UserScript, migrate to the main page with a <script> tag
+        if ( typeof unsafeWindow !== 'undefined' ) {
+            this.debug(0, 'Migrating to <script> tag');
+
+            var script = document.createElement('script');
+            script.type = 'text/javascript';
+            script.src  = 'https://llamasoft.github.io/Puca-Power/pucaPower.js';
+            document.body.appendChild(script);
+
+            return;
+        }
+
+
         // Required styling options
         $('<style id="pucaPowerCSS" type="text/css"></style>').appendTo('head');
         $('style#pucaPowerCSS').append('.noteItem { list-style: disc inside !important; }');
+        $('style#pucaPowerCSS').append('.toTop { font-size: 2em; position:fixed; top: 0.1em; right: 0.0em; cursor: default; }');
 
 
         // Load the user's settings (if possible)
@@ -1150,17 +1249,19 @@ var pucaPower = {
         this.loadSettingsFromLocal();
 
         // Ask the user for Notification permissions
-        if ("Notification" in window) { Notification.requestPermission(); }
+        if ('Notification' in window) { Notification.requestPermission(); }
 
         // Disable AJAX caching
         $.ajaxSetup({ cache: false });
 
-        // Disable the infinite scrolling
-        $(this.tableStr).infinitescroll('pause');
 
+        // Make a div to put the controls in
+        if ( $('div#pucaPower').length < 1 ) {
+            $('div#content-wrapper').prepend('<div id="pucaPower"></div>');
+        }
 
-        // Add the settings form by clobbering the help text, add timestamp to prevent caching
-        $('div.explain-text').load(this.formUrl + '?' + this.time(), function () {
+        // Load the settings form by clobbering our div, add timestamp to prevent caching
+        $('div#pucaPower').load(this.formUrl + '?' + Date.now(), function () {
             this.debug(1, 'Input form loaded');
 
             this.applySettingsToPage();
@@ -1171,9 +1272,15 @@ var pucaPower = {
 
             $('button#stop').prop('disabled', true);
 
-            this.donationRequest();
             this.news();
+            this.donationRequest();
         }.bind(this));
+
+
+        // Always disable the infinite scrolling
+        // The reloader now fetches all pages of trades, not just the first,
+        //   so there's no need for infinite scrolling while PucaPower is active
+        $(this.tableStr).infinitescroll('pause');
 
 
         // Setup google analytics
