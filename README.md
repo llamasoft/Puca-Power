@@ -1,6 +1,6 @@
 Puca Power
 =============
-**Version:** 1.3.0 (2015-10-10)
+**Version:** 1.4.0 (2016-03-01)
 
 
 
@@ -33,7 +33,7 @@ Puca Power
     - [Chrome demo](http://i.imgur.com/ObMxcpL.png)
     - [Firefox demo](http://i.imgur.com/9pXv3lW.png) (if you get a warning about pasting code into the console type `allow pasting`)
 ```JavaScript
-javascript:(function () { $('<script>').attr('src', 'https://llamasoft.github.io/Puca-Power/pucaPower.js?'+(new Date()).getTime()).appendTo('head'); })();
+javascript:(function () { $('<script>').attr('src', 'https://llamasoft.github.io/Puca-Power/pucaPower.js?'+Date.now()).appendTo('head'); })();
 ```
 
 Use the on-screen controls to configure and run Puca Power

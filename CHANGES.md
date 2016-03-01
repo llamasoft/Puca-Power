@@ -1,5 +1,19 @@
 ##### Version 1.3.0 (2015-10-27)
 
+- Now loads all pages of trades before checking for alerts and applying filtering
+  - Because all pages of trades are loaded in advance, the infinite scroll option has been removed entirely
+- Clicking an alert entry will snap that trade into view
+  - Pressing back or clicking the top-right arrows will return to the top of the page
+- Fixed the "knapsack" issue where no combinations of a member's trades meets the trade bundle threshold
+- Warning icons now mean that a member cannot afford all their trades, but some subset meets the bundle threshold
+- UserScript method now works (kinda)
+- New embedding method no longer requires a pre-existing div
+
+----------
+
+
+##### Version 1.3.0 (2015-10-27)
+
 - Added notification option.  The notification is not currently customizable.
 - Milestone: pucaPower.js contributed to by multiple developers
 - Settings structure version updated to reflect new desktop notification option

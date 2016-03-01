@@ -1,6 +1,7 @@
 <div class="row-fluid text-center">
     <h2>Puca Power <small><a href="https://github.com/llamasoft/Puca-Power/blob/master/CHANGES.md" id="pucaPowerVersion" target="_blank"></a></small></h2>
 </div>
+<div class="toTop" onclick="pucaPower.snapTo()">&#8648;</div>
 <!--
     So it turns out that I'm not great at designing user interfaces.
     I had to relearn HTML5 and Bootstrap 2.3.2 to hack this together.
@@ -21,14 +22,6 @@
                 <input id="reloadInterval" type="number" class="input-mini" min="10" step="1">
                 <span class="add-on">seconds</span>
             </div>
-        </div>
-
-        <h3><!-- spacing hack --></h3>
-        <div class="form-inline">
-            <label class="checkbox">
-                <input id="disableInfScroll" type="checkbox">
-                Disable the <abbr title="scrolling down loads more trades if available (if you have fewer than 200 matched trades, leave this checked)">infinite scroll</abbr> feature
-            </label>
         </div>
 
         <h3><!-- spacing hack --></h3>
