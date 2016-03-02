@@ -8,6 +8,7 @@
 - Warning icons now mean that a member cannot afford all their trades, but some subset meets the bundle threshold
 - UserScript method now works (kinda)
 - New embedding method no longer requires a pre-existing div
+- Sets without a set symbol no longer result in a parsing error
 
 ----------
 
