@@ -1,4 +1,4 @@
-##### Version 1.3.0 (2015-10-27)
+##### Version 1.4.0 (2016-03-01)
 
 - Now loads all pages of trades before checking for alerts and applying filtering
   - Because all pages of trades are loaded in advance, the infinite scroll option has been removed entirely
