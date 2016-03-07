@@ -1,3 +1,15 @@
+##### Version 1.4.2 (2016-03-07)
+
+- Duplicate trade offers are now removed and no longer count towards bundles
+- Added option to only alert on new or expanding alerts
+- Removed title change option (to make room for new option)
+- Lowered threshold of trade page fetching from 200 to 175
+- Capped trade page fetching to 15 pages (about 4.5k offers)
+  - Some users reported infinite page fetching; this is simply a quick-fix until I get things sorted out
+
+----------
+
+
 ##### Version 1.4.0 (2016-03-01)
 
 - Now loads all pages of trades before checking for alerts and applying filtering

@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name            Puca Power
-// @version         1.4.0
+// @version         1.4.2
 // @namespace       https://github.com/llamasoft/Puca-Power
 // @supportURL      https://github.com/llamasoft/Puca-Power
 // @description     A JavaScript utility for better trading on PucaTrade.com
@@ -15,10 +15,11 @@ var pucaPower = {
 
     /* ===== INTERNAL VARIABLES ===== */
 
-    version: 'v1.4.0',
-    updateDate: new Date(2016, 03, 01),
+    version: 'v1.4.2',
+    updateDate: '2016-03-07',
 
     formUrl: 'https://llamasoft.github.io/Puca-Power/controls.html',
+    formUrl: 'https://gist.githubusercontent.com/llamasoft/46d4a189aa16e0598fc1/raw/69778b5ec93ec9bae1e4fd8a9ffa0e3f79c96c94/controls.html',
 
     // Default values for internal settings
     // If you change this structure, you need to update the following:
@@ -34,8 +35,6 @@ var pucaPower = {
         //   (e.g. sending a card, changing country filters, searching for a card)
         reloadInterval: 60,
 
-        disableInfScroll: true,
-
         alert: {
             onBundle: true,
             bundleThreshold: 500,
@@ -46,10 +45,11 @@ var pucaPower = {
             colorizeOutgoingRows: true,
             colorizeOutgoingColor: '#FFEBB5',
 
+            onNewOnly: false,
+
             playSound: true,
             soundFile: 'https://llamasoft.github.io/Puca-Power/alert.mp3',
 
-            changeTitle: true,
             titleText: '\u2605 Trade alert! \u2605',
 
             showNotification: true,
@@ -63,7 +63,6 @@ var pucaPower = {
             membersMinPoints: 400
         }
     },
-    settingsVersion: '1.3.0',
 
     // Settings structures
     reloadInterval: null,
@@ -136,8 +135,7 @@ var pucaPower = {
     loadDefaultSettings: function () {
         this.debug(2, 'Resetting settings to default values');
 
-        this.reloadInterval   = this.defaults.reloadInterval;
-        this.disableInfScroll = this.defaults.disableInfScroll;
+        this.reloadInterval = this.defaults.reloadInterval;
         this.alert  = this.defaults.alert;
         this.filter = this.defaults.filter;
 
@@ -153,7 +151,7 @@ var pucaPower = {
 
     // Save current settings to local storage
     saveSettingsToLocal: function () {
-        if ( Storage === undefined ) {
+        if ( typeof Storage === 'undefined' ) {
             this.debug(2, 'No local storage, cannot save settings');
             this.addNote('Your settings were applied but could not be saved locally', 'text-warning');
             return;
@@ -162,10 +160,8 @@ var pucaPower = {
         this.debug(2, 'Saving settings to local storage');
 
         localStorage.pucaPowerSettings = JSON.stringify({
-            version:          this.version,
-            settingsVersion:  this.settingsVersion,
-            reloadInterval:   this.reloadInterval,
-            disableInfScroll: this.disableInfScroll,
+            version:        this.version,
+            reloadInterval: this.reloadInterval,
             alert:      this.alert,
             filter:     this.filter,
             debugLevel: this.debugLevel
@@ -177,7 +173,7 @@ var pucaPower = {
     // Load settings from local storage
     // Calls clearLocalSettings() on error
     loadSettingsFromLocal: function () {
-        if ( Storage === undefined ) {
+        if ( typeof Storage === 'undefined' ) {
             this.debug(2, 'No local storage, cannot load settings');
             return;
         }
@@ -196,16 +192,12 @@ var pucaPower = {
             return;
         }
 
-        if ( settings.settingsVersion !== this.settingsVersion ) {
-            this.debug(1, 'Settings version mismatch, attempting to extend settings with defaults');
 
-            // Using the default settings as a starting point, overlay the settings we could load
-            // This is endended from a new object to prevent clobbering of the defaults object
-            $.extend(true, {}, this.defaults, settings);
-        }
+        // Using the default settings as a starting point, overlay the settings we could load
+        // This is endended from a new object to prevent clobbering of the defaults object
+        settings = $.extend(true, {}, this.defaults, settings);
 
-        this.reloadInterval   = settings.reloadInterval;
-        this.disableInfScroll = settings.disableInfScroll;
+        this.reloadInterval = settings.reloadInterval;
         this.alert      = settings.alert;
         this.filter     = settings.filter;
         this.debugLevel = settings.debugLevel;
@@ -231,9 +223,7 @@ var pucaPower = {
         );
 
         // Don't be a menace
-        if ( this.reloadInterval < 10 ) { this.reloadInterval = 10; }
-
-        this.disableInfScroll = $('input#disableInfScroll').prop('checked');
+        if ( this.reloadInterval < 20 ) { this.reloadInterval = 20; }
 
         this.alert = {
             onBundle: $('input#alertOnBundle').prop('checked'),
@@ -253,7 +243,8 @@ var pucaPower = {
             playSound: $('input#alertPlaySound').prop('checked'),
             soundFile: $('input#alertSoundFile').val().trim(),
 
-            changeTitle: $('input#alertChangeTitle').prop('checked'),
+            onNewOnly: $('input#alertOnNewOnly').prop('checked'),
+
             titleText: this.defaults.alert.titleText,
 
             showNotification: $('input#alertShowNotification').prop('checked'),
@@ -288,8 +279,6 @@ var pucaPower = {
 
         $('input#reloadInterval').val(this.reloadInterval);
 
-        $('input#disableInfScroll').prop('checked', this.disableInfScroll);
-
         // Trade bundle settings
         $('input#alertOnBundle').prop('checked', this.alert.onBundle);
         $('input#alertBundleThreshold').val(this.alert.bundleThreshold);
@@ -305,8 +294,8 @@ var pucaPower = {
         $('input#alertPlaySound').prop('checked', this.alert.playSound);
         $('audio#alertSound').attr('src', this.alert.soundFile);
         $('input#alertSoundFile').val(this.alert.soundFile);
-        $('input#alertChangeTitle').prop('checked', this.alert.changeTitle);
         $('input#alertShowNotification').prop('checked', this.alert.showNotification);
+        $('input#alertOnNewOnly').prop('checked', this.alert.onNewOnly);
 
         // Filter settings
         $('input#filterCardsByValue').prop('checked', this.filter.cardsByValue);
@@ -412,6 +401,14 @@ var pucaPower = {
             //   depends on membership level as rare-level users have an extra column
             country = $(curRow).find('i.flag').attr('title').trim();
 
+
+            // Make sure that this row isn't a duplicate
+            if ( tradeID in this.cardData ) {
+                this.debug(3, 'Duplicate tradeID (' + tradeID + ') removed');
+                $(curRow).remove();
+                continue;
+            }
+
             // Data per row
             this.tableData.push({
                 dom:        curRow,
@@ -432,7 +429,7 @@ var pucaPower = {
             };
 
             // Data per member
-            if ( !this.memberData[memberID] ) {
+            if ( !(memberID in this.memberData) ) {
                 // Make a new entry
                 this.memberData[memberID] = {
                     memberName: memberName,
@@ -490,7 +487,7 @@ var pucaPower = {
             // We do this in two steps because the entire table doesn't exist if the user has no outgoing trades
             // If the table doesn't exist, the 0th index is undefined; undefined.cellIndex is an error
             var memberColumnIndex = $(data).find('table.datatable thead tr th:contains("Receiver")')[0];
-            if ( memberColumnIndex !== undefined ) {
+            if ( typeof memberColumnIndex !== 'undefined' ) {
                 memberColumnIndex = memberColumnIndex.cellIndex;
             }
 
@@ -548,7 +545,7 @@ var pucaPower = {
     },
 
     addNote: function (alertText, alertClass) {
-        this.debug(4, 'Adding alert item: ' + alertText);
+        this.debug(4, 'Adding note: ' + alertText);
 
         $('li#defaultNote').hide();
         $('ul#noteList').append( $('<li class="noteItem">').html(alertText).addClass(alertClass) );
@@ -557,14 +554,12 @@ var pucaPower = {
     titleAlertTimeout: null,
     setTitleAlert: function (msg, delay) {
         if ( this.titleAlertTimeout ) { return; }
-        if ( delay === undefined ) { delay = 5000; }
+        if ( typeof delay === 'undefined' ) { delay = 5000; }
 
-        if ( this.alert.changeTitle ) {
-            this.origTitle = document.title;
-            document.title = msg;
+        this.origTitle = document.title;
+        document.title = msg;
 
-            this.titleAlertTimeout = setTimeout(this.removeTitleAlert.bind(this), delay);
-        }
+        this.titleAlertTimeout = setTimeout(this.removeTitleAlert.bind(this), delay);
     },
 
     removeTitleAlert: function () {
@@ -596,24 +591,24 @@ var pucaPower = {
     },
 
     // Checks all pending trades for alerts based on user settings
+    prevAlerts: {},
+    isFirstAlertCheck: true,
     checkForAlerts: function () {
         this.debug(2, 'Checking for alerts');
 
         var i;
         var pendingAlerts = [];
-        var curAlert = {}; // { msg, style, weight }
+        var curAlert = {}; // { msg, style, value, memberID }
+        var newAlertQty = 0;
 
         var memberID, memberName, memberPts;
-        var tradeIDs, cardQty, totalCardPts;
-        var firstTradeID;
-        var country;
-        var tradeValue;
+        var tradeIDs, firstTradeID, cardQty, totalCardPts, tradeValue;
 
         var rowColor;
 
 
         // First iterate the individual members by ID
-        for (i in this.memberData) {
+        for ( i in this.memberData ) {
             if ( !this.memberData.hasOwnProperty(i) ) { continue; }
 
             memberID     = i;
@@ -623,7 +618,6 @@ var pucaPower = {
             firstTradeID = Object.keys(tradeIDs).shift();
             cardQty      = this.memberData[i].cardQty;
             totalCardPts = this.memberData[i].totalCardPts;
-            country      = this.memberData[i].country;
 
             // If the total card value is under the alert threshold
             //   or the member can afford all cards they want, trust the total value
@@ -637,12 +631,43 @@ var pucaPower = {
                 tradeValue = this.getBestBundle(tradeIDs, memberPts).value;
 
                 if ( tradeValue < this.alert.bundleThreshold ) {
-                    this.debug(2, memberName + '(' + memberID + ') cannot afford ' + this.alert.bundleThreshold);
+                    this.debug(2, memberName + ' (' + memberID + ') cannot afford ' + this.alert.bundleThreshold);
                 }
             }
-            curAlert = {};
 
 
+            curAlert = {
+                memberID: memberID,
+                style: (totalCardPts > memberPts ? 'text-warning' : ''),
+                value: tradeValue,
+                isNew: false
+            };
+
+            curAlert.isNew = false;
+            // Did we see this member last check?
+            if ( memberID in this.prevAlerts ) {
+
+                // Yes, but do they want anything new?
+                for ( tradeID in tradeIDs ) {
+                    if ( !(tradeID in this.prevAlerts[memberID]) ) {
+                        curAlert.isNew = true;
+                        break;
+                    }
+                }
+
+            } else {
+                // This member wasn't in our last alerts, that means they're new
+                curAlert.isNew = true;
+            }
+
+            var alertStar = (
+                ( curAlert.isNew && !this.isFirstAlertCheck )
+                ? '<abbr title="this alert is new or has added new cards">&#9733;</abbr>'
+                : ''
+            );
+
+
+            // Note: the last alert a member qualifies for takes priority
             // Does this qualify as a bundle alert?
             if ( this.alert.onBundle && tradeValue >= this.alert.bundleThreshold ) {
                 this.memberData[i].hasAlert = true;
@@ -650,44 +675,39 @@ var pucaPower = {
 
                 // Queue the alert
                 // If the trade value is limited by the user's points, mark the entry
-                curAlert = {
-                    msg:
-                        '<span onclick="pucaPower.snapTo(\'#' + firstTradeID + '\');">'
-                      + '<strong>' + memberName + '</strong> '
-                      + 'wants ' + cardQty + ' cards for '
-                      + '<strong>' + totalCardPts + ' points</strong>'
-                      + '</span>',
-                    style: (totalCardPts > memberPts ? 'text-warning' : ''),
-                    weight: tradeValue
-                };
+                // If this trade is new/changed, mark the entry with a star (except on first load)
+                curAlert.msg =
+                    '<span onclick="pucaPower.snapTo(\'#' + firstTradeID + '\');">'
+                  + '<strong>' + memberName + '</strong> '
+                  + 'wants ' + cardQty + ' cards for '
+                  + '<strong class="' + curAlert.style + '">' + totalCardPts + ' points</strong> '
+                  + alertStar
+                  + '</span>'
+                ;
             }
 
 
             // Does this member have outgoing trades?
-            // If a user qualifies for bundle and outgoing alerts, the outgoing always has higher priority.
-            if ( this.alert.onOutgoing && this.outgoingTrades[memberID] !== undefined ) {
+            if ( this.alert.onOutgoing && memberID in this.outgoingTrades ) {
                 this.memberData[i].hasAlert = true;
                 this.memberData[i].hasOutgoingAlert = true;
 
                 // The value is increased by how much we're already sending them
-                tradeValue += this.outgoingTrades[memberID].totalCardPts;
+                curAlert.value += this.outgoingTrades[memberID].totalCardPts;
 
-                curAlert = {
-                    msg:
-                        '<span onclick="pucaPower.snapTo(\'#' + firstTradeID + '\');">'
-                      + '<strong>' + memberName + '</strong> '
-                      + 'has outgoing trades and wants ' + cardQty + ' more cards for '
-                      + '<strong>' + totalCardPts + ' points</strong>'
-                      + '</span>',
-                    style: (totalCardPts > memberPts ? 'text-warning' : ''),
-                    weight: tradeValue
-                };
+                curAlert.msg =
+                    '<span onclick="pucaPower.snapTo(\'#' + firstTradeID + '\');">'
+                  + '<strong>' + memberName + '</strong> '
+                  + 'has outgoing trades and wants ' + cardQty + ' more cards for '
+                  + '<strong>' + totalCardPts + ' points</strong> ' + alertStar
+                  + '</span>'
+                ;
             }
 
 
-            if ( curAlert.msg !== undefined ) {
+            if ( typeof curAlert.msg !== 'undefined' ) {
                 pendingAlerts.push(curAlert);
-                this.debug(0, 'Alert! ' + $(curAlert.msg).text());
+                newAlertQty += curAlert.isNew;
             }
         }
 
@@ -717,7 +737,7 @@ var pucaPower = {
                     rowColor = this.alert.colorizeOutgoingColor;
                 }
 
-                // If we have a pending color, apply it.
+                // If we have a pending color, apply it
                 if ( rowColor !== null ) {
                     $(this.tableData[i].dom).find('td').css('background-color', rowColor);
                 }
@@ -736,19 +756,34 @@ var pucaPower = {
 
 
         if ( pendingAlerts.length > 0 ) {
-            this.playAlertSound();
-            this.setTitleAlert(this.alert.titleText);
-            this.showNotification(this.alert.titleText, this.alert.notificationTimeout);
+            if ( !this.alert.onNewOnly || (this.alert.onNewOnly && newAlertQty > 0) ) {
+                this.playAlertSound();
+                this.setTitleAlert(this.alert.titleText);
+                this.showNotification(this.alert.titleText, this.alert.notificationTimeout);
+            }
+
             window._gaq.push(['pucaPowerGA._trackEvent', 'PucaPower', 'Alert']);
         }
 
-        // Sort the alerts by weight (descending)
-        pendingAlerts.sort(function (a, b) { return (b.weight - a.weight); });
+        // Sort the alerts by value (descending)
+        // TODO: sort new alerts to the top
+        pendingAlerts.sort(function (a, b) { return (b.value - a.value); });
 
-        // Display the alerts, highest weight first
+
+        // Display the alerts, highest value first
+        // Update the prevAlert structure for next alert check
+        this.prevAlerts = {};
         for (i = 0; i < pendingAlerts.length; i++) {
-            this.addNote(pendingAlerts[i].msg, pendingAlerts[i].style);
+            curAlert = pendingAlerts[i];
+            this.debug(0, $(curAlert.msg).text());
+            this.addNote(curAlert.msg);
+
+            this.prevAlerts[curAlert.memberID] = this.memberData[curAlert.memberID].tradeIDs;
         }
+
+        this.debug(1, 'Found ' + pendingAlerts.length + ' alerts, ' + newAlertQty + ' new or expanded');
+
+        this.isFirstAlertCheck = false;
     },
 
 
@@ -783,8 +818,8 @@ var pucaPower = {
 
     news: function () {
         // Only display news for up to two weeks
-        if ( Date.now() - this.updateDate <= 14 * 24 * 60 * 60 * 1000 ) {
-            this.addNote('Update released! See the change log for full details.', 'text-success');
+        if ( Date.now() - new Date(this.updateDate).getTime() <= 14 * 24 * 60 * 60 * 1000 ) {
+            this.addNote('Version ' + this.version + ' released on ' + this.updateDate + '! See the change log for full details.', 'text-success');
         }
     },
 
@@ -821,11 +856,11 @@ var pucaPower = {
                 // Check if a bundle of this value already exists
                 if ( newValue in bundles ) {
                     // A bundle of this value exists
-                    var newTradeCount = Object.keys( newBundle ).length;
-                    var oldTradeCount = Object.keys( bundles[newValue] ).length;
+                    var newTradeQty = Object.keys( newBundle ).length;
+                    var oldTradeQty = Object.keys( bundles[newValue] ).length;
 
                     // Only replace it if this bundle has fewer trades
-                    if ( newTradeCount < oldTradeCount ) {
+                    if ( newTradeQty < oldTradeQty ) {
                         bundles[newValue] = newBundle;
                         bestBundleValue = newValue;
                     }
@@ -837,6 +872,7 @@ var pucaPower = {
                 }
             }
 
+            // Break early if targetValue is set and we currently exceed it
             if ( typeof targetValue !== 'undefined' && bestBundleValue >= targetValue ) { break; }
         }
 
@@ -955,6 +991,8 @@ var pucaPower = {
             return;
         }
 
+        this.clearAllNotes();
+        this.addNote('Reload started', 'text-success');
         this.debug(1, 'Reloading table data');
 
         // Reload settings in case something changed
@@ -1011,7 +1049,7 @@ var pucaPower = {
         this.cancelReload();
 
         // If the reloadInterval is sane, queue up a reload
-        if ( this.reloadInterval >= 10 ) {
+        if ( this.reloadInterval >= 20 ) {
             this.reloadTimeout = setTimeout(this.go.bind(this), this.reloadInterval * 1000);
             this.debug(4, 'Reload queued');
         }
@@ -1110,7 +1148,6 @@ var pucaPower = {
                     }
                 }
             }
-
         }.bind(this));
 
 
@@ -1142,15 +1179,23 @@ var pucaPower = {
                 //   /trades or /trades/ -> vanilla reload, getting the first page of trades
                 //   /trades/[NUM]       -> fetching a specific page of trades
 
-                var prevTableLen = this.tableData.length;
-                this.parseTradeTable();
-                var curTableLen = this.tableData.length;
+                var curPage = $('table.infinite tbody').data().infinitescroll.options.state.currPage;
 
-                // PucaTrade loads a seemingly random number of trades with each trade page
-                // Usually, if the number of loaded trades is over 200, there's another page waiting
+                var prevTableQty = this.tableData.length;
+                this.parseTradeTable();
+                var curTableQty = this.tableData.length;
+                this.debug(3, 'Loaded ' + (curTableQty - prevTableQty) + ' trades');
+
+                // PucaTrade loads a seemingly random number of trades with each trade page (200 to 300)
+                // Usually, if the number of loaded trades is over 175, there's another page waiting
                 // Start loading the next page and only filter/alert once all pages have been loaded
-                if ( curTableLen - prevTableLen >= 200 ) {
-                    this.addNote('Loading more trades...', 'text-success');
+                // In case something goes wrong, hard cap the trade pages at 15 (about 4.5k trades)
+                if ( curTableQty - prevTableQty >= 175 && curPage < 15 ) {
+                    if ( $('#tradePageNum').length < 1 ) {
+                        this.addNote('Loading page <span id="tradePageNum"></span> of trades...', 'text-success');
+                    }
+
+                    $('#tradePageNum').text(curPage + 1);
                     setTimeout(function () { $(this.tableStr).infinitescroll('retrieve'); }.bind(this), 250);
 
                 } else {
@@ -1164,8 +1209,6 @@ var pucaPower = {
 
         // Button and input listeners to keep the settings form pretty
         $('button#start').click(function () {
-            this.clearAllNotes();
-            this.addNote('Reload started', 'text-success');
             this.go();
         }.bind(this));
         $('button#stop').click(function () {
@@ -1192,6 +1235,9 @@ var pucaPower = {
             this.loadSettingsFromPage();
             $('audio#alertSound').trigger('play');
         }.bind(this));
+
+        $('input#alertShowNotification').click(this.loadSettingsFromPage.bind(this));
+        $('input#alertOnNewOnly').click(this.loadSettingsFromPage.bind(this));
 
         $('input#filterCardsByValue').click(this.updatePageState.bind(this));
         $('input#filterMembersByPoints').click(this.updatePageState.bind(this));
