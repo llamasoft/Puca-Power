@@ -765,10 +765,9 @@ var pucaPower = {
             window._gaq.push(['pucaPowerGA._trackEvent', 'PucaPower', 'Alert']);
         }
 
-        // Sort the alerts by value (descending)
-        // TODO: sort new alerts to the top
-        pendingAlerts.sort(function (a, b) { return (b.value - a.value); });
 
+        // Sort new alerts to the top (isNew descending), then alerts by value (value descending)
+        pendingAlerts.sort(function (a, b) { return (b.isNew - a.isNew) || (b.value - a.value); });
 
         // Display the alerts, highest value first
         // Update the prevAlert structure for next alert check
