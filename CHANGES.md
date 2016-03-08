@@ -1,3 +1,14 @@
+##### Version 1.4.3 (2016-03-08)
+
+- Reduced CPU load during refresh by deferring table parsing
+- Reduced memory footprint by removing DOM elements instead of hiding
+- Reduced memory footprint by clearing variables at end of refresh cycle
+- Fixed minor "knapsack" algorithm bug
+- Added pucaPower.maxPages setting (no GUI setting yet), set default back down to 10
+
+----------
+
+
 ##### Version 1.4.2 (2016-03-07)
 
 - Duplicate trade offers are now removed and no longer count towards bundles

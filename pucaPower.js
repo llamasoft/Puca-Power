@@ -33,6 +33,7 @@ var pucaPower = {
         //   there are actions that reload the table that are beyond our control
         //   (e.g. sending a card, changing country filters, searching for a card)
         reloadInterval: 60,
+        maxPages: 10,
 
         alert: {
             onBundle: true,
@@ -65,6 +66,7 @@ var pucaPower = {
 
     // Settings structures
     reloadInterval: null,
+    maxPages: null,
     alert: null,
     filter: null,
 
@@ -79,7 +81,7 @@ var pucaPower = {
     },
 
     // Array of objects of the loaded trade data
-    // Each entry is {dom, tradeID, memberID, memberName, memberPts, country, cardName, cardPts}
+    // Each entry is {tradeID, memberID, memberName, memberPts, country, cardName, cardPts}
     tableData: [],
 
     // Object of card information
@@ -135,6 +137,7 @@ var pucaPower = {
         this.debug(2, 'Resetting settings to default values');
 
         this.reloadInterval = this.defaults.reloadInterval;
+        this.maxPages = this.defaults.maxPages;
         this.alert  = this.defaults.alert;
         this.filter = this.defaults.filter;
 
@@ -161,6 +164,7 @@ var pucaPower = {
         localStorage.pucaPowerSettings = JSON.stringify({
             version:        this.version,
             reloadInterval: this.reloadInterval,
+            maxPages:   this.maxPages,
             alert:      this.alert,
             filter:     this.filter,
             debugLevel: this.debugLevel
@@ -197,6 +201,7 @@ var pucaPower = {
         settings = $.extend(true, {}, this.defaults, settings);
 
         this.reloadInterval = settings.reloadInterval;
+        this.maxPages   = settings.maxPages;
         this.alert      = settings.alert;
         this.filter     = settings.filter;
         this.debugLevel = settings.debugLevel;
@@ -223,6 +228,8 @@ var pucaPower = {
 
         // Don't be a menace
         if ( this.reloadInterval < 20 ) { this.reloadInterval = 20; }
+
+        // TODO: maxPages
 
         this.alert = {
             onBundle: $('input#alertOnBundle').prop('checked'),
@@ -277,6 +284,7 @@ var pucaPower = {
         this.debug(4, 'Applying active settings to page');
 
         $('input#reloadInterval').val(this.reloadInterval);
+        // TODO: maxPages
 
         // Trade bundle settings
         $('input#alertOnBundle').prop('checked', this.alert.onBundle);
@@ -410,7 +418,6 @@ var pucaPower = {
 
             // Data per row
             this.tableData.push({
-                dom:        curRow,
                 tradeID:    tradeID,
                 memberID:   memberID,
                 memberName: memberName,
@@ -719,10 +726,6 @@ var pucaPower = {
             rowColor = null;
 
             if ( this.memberData[memberID].hasAlert ) {
-                // Reveal the row if previously hidden by filtering
-                $(this.tableData[i].dom).show();
-                $(this.tableData[i].dom).data('hasAlert', true);
-
                 this.seenAlerts[ this.tableData[i].tradeID ] = this.tableData[i].cardPts;
 
 
@@ -738,16 +741,16 @@ var pucaPower = {
 
                 // If we have a pending color, apply it
                 if ( rowColor !== null ) {
-                    $(this.tableData[i].dom).find('td').css('background-color', rowColor);
+                    $('#'+ this.tableData[i].tradeID).find('td').css('background-color', rowColor);
                 }
 
 
                 // Put a mark next to the member's points if they can't afford all the cards they want
                 if ( memberPts < totalCardPts ) {
-                    if ( !$(this.tableData[i].dom).data('hasPointWarning') ) {
-                        $(this.tableData[i].dom).data('hasPointWarning', true);
-                        $(this.tableData[i].dom).find('td.points').prepend('<i class="icon-warning-sign"></i>&nbsp;&nbsp;');
-                        $(this.tableData[i].dom).find('td.points').append('&nbsp;&nbsp;<i class="icon-warning-sign"></i>');
+                    if ( !$('#'+ this.tableData[i].tradeID).data('hasPointWarning') ) {
+                        $('#'+ this.tableData[i].tradeID).data('hasPointWarning', true);
+                        $('#'+ this.tableData[i].tradeID).find('td.points').prepend('<i class="icon-warning-sign"></i>&nbsp;&nbsp;');
+                        $('#'+ this.tableData[i].tradeID).find('td.points').append('&nbsp;&nbsp;<i class="icon-warning-sign"></i>');
                     }
                 }
             }
@@ -866,7 +869,10 @@ var pucaPower = {
                 } else {
                     // This is a new bundle value
                     bundles[newValue] = newBundle;
-                    bestBundleValue = newValue;
+
+                    if ( newValue > bestBundleValue ) {
+                        bestBundleValue = newValue;
+                    }
                 }
             }
 
@@ -954,10 +960,10 @@ var pucaPower = {
             }
 
 
-            // If we found at least one filter criteria, hide the trade offer
+            // If we found at least one filter criteria, remove the trade offer
             if ( matchedFilter ) {
                 filterQty++;
-                $(this.tableData[i].dom).hide();
+                $('#'+ this.tableData[i].tradeID).remove();
             }
         }
 
@@ -1010,9 +1016,6 @@ var pucaPower = {
         // Auto-match must be on, otherwise things get weird with alerts and filtering.
         this.enableAutoMatch();
 
-        // Reset the previously loaded tableData so we can keep track of how many entries we loaded
-        this.tableData = [];
-
         this.events.tableLoadComplete = false;
         window.loadTableData();
         window._gaq.push(['pucaPowerGA._trackEvent', 'PucaPower', 'Reload']);
@@ -1028,9 +1031,17 @@ var pucaPower = {
         // If we're not running, don't do anything
         if ( !this.running ) { return; }
 
+        this.parseTradeTable();
         this.clearAllNotes();
         this.checkForAlerts();
         this.filterTrades();
+
+        // We don't need these sitting around any more
+        if ( this.debugLevel < 3 ) {
+            this.tableData  = [];
+            this.cardData   = {};
+            this.memberData = {};
+        }
 
         // A reload is automatically queued when a vanilla table reload starts,
         //   see .ajaxSend handler in setupListeners()
@@ -1178,17 +1189,14 @@ var pucaPower = {
                 //   /trades/[NUM]       -> fetching a specific page of trades
 
                 var curPage = $('table.infinite tbody').data().infinitescroll.options.state.currPage;
-
-                var prevTableQty = this.tableData.length;
-                this.parseTradeTable();
-                var curTableQty = this.tableData.length;
-                this.debug(3, 'Loaded ' + (curTableQty - prevTableQty) + ' trades');
+                var curLoadQty = $(xhr.responseText).find(this.tableRowStr).length;
+                this.debug(3, 'Loaded ' + curLoadQty + ' trades');
 
                 // PucaTrade loads a seemingly random number of trades with each trade page (200 to 300)
                 // Usually, if the number of loaded trades is over 175, there's another page waiting
                 // Start loading the next page and only filter/alert once all pages have been loaded
                 // In case something goes wrong, hard cap the trade pages at 15 (about 4.5k trades)
-                if ( curTableQty - prevTableQty >= 175 && curPage < 15 ) {
+                if ( curLoadQty >= 175 && curPage < this.maxPages ) {
                     if ( $('#tradePageNum').length < 1 ) {
                         this.addNote('Loading page <span id="tradePageNum"></span> of trades...', 'text-success');
                     }
@@ -1256,7 +1264,7 @@ var pucaPower = {
         // If we're not on PucaTrade, we shouldn't run
         if ( !inUrl('pucatrade.com') ) {
             alert('Hey!  This doesn\'t look like PucaTrade!');
-            return this;
+            return;
         }
 
         // The trades section is specifically "pucatrade.com/trades" but nothing under it
@@ -1265,7 +1273,7 @@ var pucaPower = {
         //   so any front slashes after "trades" is a failure
         if ( !inUrl('pucatrade.com/trades') || inUrl('pucatrade.com/trades/') ) {
             alert('Hey!  This isn\'t the Trades section!');
-            return this;
+            return;
         }
 
 
@@ -1337,8 +1345,7 @@ var pucaPower = {
             ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
             var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
         })();
-
-
-        return this;
     }
-}.setup();
+};
+
+pucaPower.setup();
