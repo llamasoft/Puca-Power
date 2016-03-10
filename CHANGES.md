@@ -5,6 +5,7 @@
 - Reduced memory footprint by clearing variables at end of refresh cycle
 - Fixed minor "knapsack" algorithm bug
 - Added pucaPower.maxPages setting (no GUI setting yet), set default back down to 10
+- Fix card sending regression
 
 ----------
 
