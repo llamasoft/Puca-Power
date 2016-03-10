@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name            Puca Power
-// @version         1.4.2
+// @version         1.4.3
 // @namespace       https://github.com/llamasoft/Puca-Power
 // @supportURL      https://github.com/llamasoft/Puca-Power
 // @description     A JavaScript utility for better trading on PucaTrade.com
@@ -15,7 +15,7 @@ var pucaPower = {
 
     /* ===== INTERNAL VARIABLES ===== */
 
-    version: 'v1.4.2',
+    version: 'v1.4.3',
     updateDate: '2016-03-07',
 
     formUrl: 'https://llamasoft.github.io/Puca-Power/controls.html',
@@ -1039,8 +1039,9 @@ var pucaPower = {
         // We don't need these sitting around any more
         if ( this.debugLevel < 3 ) {
             this.tableData  = [];
-            this.cardData   = {};
             this.memberData = {};
+
+            // this.cardData must be retained for /trades/confirm AJAX hook
         }
 
         // A reload is automatically queued when a vanilla table reload starts,
