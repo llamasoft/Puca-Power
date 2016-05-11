@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name            Puca Power
-// @version         1.4.3
+// @version         1.4.4
 // @namespace       https://github.com/llamasoft/Puca-Power
 // @supportURL      https://github.com/llamasoft/Puca-Power
 // @description     A JavaScript utility for better trading on PucaTrade.com
@@ -15,8 +15,8 @@ var pucaPower = {
 
     /* ===== INTERNAL VARIABLES ===== */
 
-    version: 'v1.4.3',
-    updateDate: '2016-03-07',
+    version: 'v1.4.4',
+    updateDate: '2016-05-11',
 
     formUrl: 'https://llamasoft.github.io/Puca-Power/controls.html',
 
@@ -836,19 +836,38 @@ var pucaPower = {
         var bundles = { 0: {} };
         var bestBundleValue = 0;
 
+        // Users with massive numbers of small trades can potentially cause this function to run long
+        // Set a resonable timeout threshold (in milliseconds) and return our best answer if we run out of time
+        var maxRuntime = 100;
+        var startTime  = Date.now();
+
+
+        // Iterate trades from largest to smallest by value
+        // This causes the most rejects early on for going over a member's total points, culling
+        //   bad entries much faster than ordering by smallest to largest
+        // This also gets our best estimate as large as possible early on in case we have to bail
+        var sortedTradeIDs = Object.keys(trades).sort(function(a, b) { return trades[b] - trades[a]; });
+        var tradeQty = sortedTradeIDs.length;
+
         // For each trade the member wants...
-        for ( var curTradeID in trades ) {
+        for ( var tradeNum = 0; tradeNum < tradeQty; tradeNum++ ) {
+            if ( Date.now() - startTime > maxRuntime ) { break; }
+
+            var curTradeID    = trades[ sortedTradeIDs[tradeNum] ];
             var curTradeValue = parseInt(trades[curTradeID], 10);
 
             // Attempt to add it to all possible trade bundles
             for ( var bundleValue in bundles ) {
-                // Skip any bundles that already contain this card
+                if ( Date.now() - startTime > maxRuntime ) { break; }
+
+                // Skip any bundles that already contain this trade
                 // This should never happen as we only iterate trades once but better safe than infinite
                 if ( curTradeID in bundles[bundleValue] ) { continue; }
 
                 // If the new bundle value exceeds the member's points, skip it
                 var newValue = parseInt(bundleValue, 10) + curTradeValue;
                 if ( newValue > memberPts ) { continue; }
+
 
                 // Copy and extend the bundle with our current trade included
                 var newBundle = $.extend({}, bundles[bundleValue]);
@@ -863,7 +882,7 @@ var pucaPower = {
                     // Only replace it if this bundle has fewer trades
                     if ( newTradeQty < oldTradeQty ) {
                         bundles[newValue] = newBundle;
-                        bestBundleValue = newValue;
+                        bestBundleValue   = newValue;
                     }
 
                 } else {
@@ -878,6 +897,12 @@ var pucaPower = {
 
             // Break early if targetValue is set and we currently exceed it
             if ( typeof targetValue !== 'undefined' && bestBundleValue >= targetValue ) { break; }
+        }
+
+
+        // If we stopped because we went over time, the user may like to know about it
+        if ( Date.now() - startTime > maxRuntime ) {
+            this.debug(0, 'Bailed from bundle value calculation for taking too long, user had ' + tradeQty + ' trades');
         }
 
         return {value: bestBundleValue, tradeIDs: bundles[bestBundleValue]};
@@ -1017,7 +1042,7 @@ var pucaPower = {
         this.enableAutoMatch();
 
         this.events.tableLoadComplete = false;
-        window.loadTableData();
+        window.pucaLoadTableData();
         window._gaq.push(['pucaPowerGA._trackEvent', 'PucaPower', 'Reload']);
     },
 
@@ -1284,7 +1309,7 @@ var pucaPower = {
 
             var script = document.createElement('script');
             script.type = 'text/javascript';
-            script.src  = 'https://llamasoft.github.io/Puca-Power/pucaPower.js';
+            script.src  = GM_info.script.downloadURL;
             document.body.appendChild(script);
 
             return;
@@ -1334,6 +1359,29 @@ var pucaPower = {
         // The reloader now fetches all pages of trades, not just the first,
         //   so there's no need for infinite scrolling while PucaPower is active
         $(this.tableStr).infinitescroll('pause');
+
+
+        // Hide the main loadTableData() function so that PucaTrade can't start table reloads without our approval
+        // These include after sending a trade, toggling automatch, searching, and changing countries
+        // Incidentally, when the infinite table initiates a page load, it bypasses loadTableData()
+        // We use loadTableData() for the first page, then the infinite table's "retrieve" thereafter
+        if ( typeof window.pucaLoadTableData === 'undefined' ) {
+            window.pucaLoadTableData = window.loadTableData;
+            window.loadTableData = function(vars) {
+                // This function runs under the window scope and must address pucaPower by name
+                // Normally I would .bind(this), but I don't want to damage the scope when I forward
+                //   calls to the original loadTableData function
+                if ( pucaPower.running ) {
+                    // Puca Power is running, suppress the reload
+                    if ( typeof vars !== 'undefined' ) { window.lastVars = vars; }
+                    pucaPower.debug(1, 'Page reload suppressed');
+
+                } else {
+                    // Puca Power is not running, allow the reload
+                    window.pucaLoadTableData(vars);
+                }
+            };
+        }
 
 
         // Setup google analytics
