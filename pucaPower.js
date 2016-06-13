@@ -1334,12 +1334,12 @@ var pucaPower = {
 
 
         // Make a div to put the controls in
-        if ( $('div#pucaPower').length < 1 ) {
-            $('div#content-wrapper').prepend('<div id="pucaPower"></div>');
+        if ( $('div#pucaPowerDiv').length < 1 ) {
+            $('div#content-wrapper').prepend('<div id="pucaPowerDiv"></div>');
         }
 
         // Load the settings form by clobbering our div, add timestamp to prevent caching
-        $('div#pucaPower').load(this.formUrl + '?' + Date.now(), function () {
+        $('div#pucaPowerDiv').load(this.formUrl + '?' + Date.now(), function () {
             this.debug(1, 'Input form loaded');
 
             this.applySettingsToPage();
